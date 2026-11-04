@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Create account · WorkLifeBalance{% endblock %}
+{% block content %}
+<section class="account-shell">
+  <div class="account-card">
+    <p class="eyebrow">Account foundation</p>
+    <h1>Give your workspace a safe home.</h1>
+    {% if claims_legacy_workspace %}
+      <p>This first account adopts the existing local Compass, Archive, matches, and CV evidence. Nothing is copied to another service.</p>
+    {% else %}
+      <p>A separate empty workspace will be created. Other accounts cannot see its Compass, Archive, matches, or CV evidence.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('account_register_submit') }}" class="stacked-form">
+      <label for="account-name">Name</label>
+      <input id="account-name" name="display_name" type="text" autocomplete="name" required maxlength="120">
+      <label for="account-email">Email</label>
+      <input id="account-email" name="email" type="email" autocomplete="email" required maxlength="254">
+      <label for="account-password">Password</label>
+      <input id="account-password" name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="256" aria-describedby="password-help">
+      <small id="password-help">Use at least 12 characters. Passwords are stored as salted scrypt hashes.</small>
+      <button class="primary-button" type="submit">Create private account</button>
+    </form>
+    <p class="account-footnote"><a href="{{ url_for('account_login') }}">Back to sign in</a></p>
+  </div>
+</section>
+{% endblock %}

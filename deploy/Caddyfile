@@ -1,0 +1,34 @@
+{
+	# Caddy's default runtime logger can include the full HTTP request when a
+	# handler or reverse proxy fails, even when site access logging is disabled.
+	# Remove the complete request object before runtime/error events are encoded;
+	# this also removes the URI and any private job URL carried in its query.
+	log default {
+		format filter {
+			request delete
+		}
+	}
+}
+
+http://{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	reverse_proxy app:8000 {
+		header_up X-Forwarded-Proto https
+	}
+
+	header {
+		# Keep the first staging policy reversible. Increase this only after
+		# every intended subdomain has been tested through HTTPS.
+		Strict-Transport-Security "max-age=86400"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	# Deliberately no HTTP access log. Some private UI routes carry a source job
+	# URL in their query string; retaining request URIs would retain that URL.
+	# Filtered runtime/error metadata remains available in the rotated container
+	# log, but its complete request object is deleted by the global logger above.
+}

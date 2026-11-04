@@ -1,0 +1,31 @@
+<div class="compact-ratings{% if compact_include_employer %} has-employer-rating{% endif %}">
+  {% if compact_include_employer %}<span class="compact-ratings-heading">Your ratings</span>{% endif %}
+  <div class="compact-job-rating" data-job-rating-control data-rating-scope="job:{{ rating_record_id }}" data-rating-record-id="{{ rating_record_id }}" data-rating-url="{{ url_for('job_rating', record_id=rating_record_id) }}" data-clear-url="{{ url_for('job_rating_clear', record_id=rating_record_id) }}" data-current-rating="{{ job_rating.stars if job_rating else '' }}">
+    <span class="compact-rating-label">{{ 'Job' if compact_include_employer else 'Your job rating' }}</span>
+    <div class="compact-star-buttons" role="group" aria-label="Rate {{ rating_job_title }} from zero to five stars">
+      <button class="job-star-button job-star-zero{% if job_rating and job_rating.stars == 0 %} is-active{% endif %}" type="button" data-job-rating-value="0" aria-label="0 of 5 job stars; strongest compatibility reduction" aria-pressed="{{ 'true' if job_rating and job_rating.stars == 0 else 'false' }}" title="0 stars lowers compatibility without creating a boundary"><span aria-hidden="true">⊘</span></button>
+      {% for star in range(1, 6) %}
+        <button class="job-star-button{% if job_rating and job_rating.stars > 0 and star <= job_rating.stars %} is-active{% endif %}" type="button" data-job-rating-value="{{ star }}" aria-label="{{ star }} of 5 job stars" aria-pressed="{{ 'true' if job_rating and job_rating.stars == star else 'false' }}" title="{{ star }} of 5 job stars"><span aria-hidden="true">★</span></button>
+      {% endfor %}
+    </div>
+    <button class="job-rating-clear" type="button" data-job-rating-clear{% if not job_rating %} hidden{% endif %}>Clear</button>
+    <small><span data-job-rating-copy>{{ job_rating.stars ~ '/5' if job_rating else 'Not rated' }}</span><span class="visually-hidden"> · private to this persona</span><span data-job-rating-status aria-live="polite"></span></small>
+  </div>
+  {% if compact_include_employer %}
+    <div class="compact-employer-rating{% if not employer_rating_available %} is-unavailable{% endif %}"{% if employer_rating_available %} data-employer-rating-control data-rating-scope="employer:{{ rating_employer_key if rating_employer_key is defined else rating_employer_name }}" data-rating-record-id="{{ rating_record_id }}" data-rating-url="{{ url_for('job_employer_rating', record_id=rating_record_id) }}" data-clear-url="{{ url_for('job_employer_rating_clear', record_id=rating_record_id) }}" data-current-rating="{{ employer_rating.stars if employer_rating else '' }}"{% endif %}>
+      <span class="compact-rating-label">Employer</span>
+      {% if employer_rating_available %}
+        <div class="compact-star-buttons" role="group" aria-label="Rate {{ rating_employer_name }} from zero to five stars">
+          <button class="employer-star-button employer-star-zero{% if employer_rating and employer_rating.stars == 0 %} is-active{% endif %}" type="button" data-employer-rating-value="0" aria-label="0 of 5 employer stars; strongest compatibility reduction" aria-pressed="{{ 'true' if employer_rating and employer_rating.stars == 0 else 'false' }}" title="0 stars lowers compatibility without creating a boundary"><span aria-hidden="true">⊘</span></button>
+          {% for star in range(1, 6) %}
+            <button class="employer-star-button{% if employer_rating and employer_rating.stars > 0 and star <= employer_rating.stars %} is-active{% endif %}" type="button" data-employer-rating-value="{{ star }}" aria-label="{{ star }} of 5 employer stars" aria-pressed="{{ 'true' if employer_rating and employer_rating.stars == star else 'false' }}" title="{{ star }} of 5 employer stars"><span aria-hidden="true">★</span></button>
+          {% endfor %}
+        </div>
+        <button class="employer-rating-clear" type="button" data-employer-rating-clear{% if not employer_rating %} hidden{% endif %}>Clear</button>
+        <small><span data-employer-rating-copy>{{ employer_rating.stars ~ '/5' if employer_rating else 'Not rated' }}</span><span class="visually-hidden"> · private to this persona</span><span data-employer-rating-status aria-live="polite"></span></small>
+      {% else %}
+        <small class="compact-rating-unavailable">Name the employer first</small>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>

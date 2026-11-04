@@ -1,0 +1,56 @@
+{% set current_application_state = item.interaction.application_state.value if item.interaction else 'discovered' %}
+{% set draft_count = draft_counts.get(item.record.id, 0) if draft_counts is defined else 0 %}
+{% set posting_freshness = item.stored.result.posting_date.freshness.value if item.stored.result.posting_date else 'unknown' %}
+{% set job_rating = job_ratings.get(item.record.id) if job_ratings is defined else none %}
+{% set employer_rating = employer_ratings_by_record.get(item.record.id) if employer_ratings_by_record is defined else none %}
+{% set employer_rating_available = employer_rating_available_by_record.get(item.record.id, false) if employer_rating_available_by_record is defined else false %}
+{% set rating_employer_name = employer_names_by_record.get(item.record.id, item.stored.job.company) if employer_names_by_record is defined else item.stored.job.company %}
+{% set rating_employer_key = employer_keys_by_record.get(item.record.id, rating_employer_name) if employer_keys_by_record is defined else rating_employer_name %}
+{% set display_location = item.display_location if item.display_location is defined else item.stored.job.display_location if item.stored.job.display_location is defined else item.stored.job.location %}
+{% set remote_only = item.remote_only if item.remote_only is defined else item.stored.job.remote_only if item.stored.job.remote_only is defined else false %}
+<article class="opportunity-card result-card{% if selection_mode and item.accessible %} selectable-card{% endif %}{% if not item.accessible %} locked-result{% endif %}" data-opportunity-card data-opportunity-record-id="{{ item.record.id }}" data-card-score="{{ item.stored.result.score }}" data-card-disposition="{{ item.stored.result.disposition.value }}" data-application-state-card="{{ current_application_state }}" data-posting-freshness="{{ posting_freshness }}" data-match-result-card data-match-record-id="{{ item.record.id }}" data-match-position="{{ item.stored.position }}" data-match-disposition="{{ item.stored.result.disposition.value }}">
+  {% if item.accessible %}
+  <a class="card-body-link card-link" href="{{ url_for('job_detail', record_id=item.record.id) }}" aria-label="Open match evidence for {{ item.stored.job.title }} at {{ rating_employer_name }}">
+  {% endif %}
+    <div class="card-topline">
+      <span class="card-status-cluster">
+        <span class="fit-label {{ item.stored.result.disposition.value }}" data-match-disposition-label data-card-disposition-label>{{ item.disposition_label }}</span>
+        {% if remote_only %}<span class="remote-only-badge">Remote</span>{% endif %}
+        {% if posting_freshness == 'fresh' %}<span class="posting-age-badge fresh" title="The known posting date is less than one month old"><span aria-hidden="true">✦</span> Fresh</span>{% elif posting_freshness == 'old' %}<span class="posting-age-badge old" title="The known posting date is more than four months old"><span aria-hidden="true">◷</span> Old</span>{% endif %}
+      </span>
+      {% if item.accessible %}<span class="access-label" data-match-access-label>{% if item.stored.result.disposition.value == 'blocked' %}Transparent{% else %}Included{% endif %}</span>{% else %}<span class="access-label locked">Beyond free {{ groups.free_limit }}</span>{% endif %}
+    </div>
+    {% if item.accessible %}
+      <div>
+        <p class="company">{{ rating_employer_name }}</p>
+        <h3>{{ item.stored.job.title }}</h3>
+        <p class="location">{{ display_location }}</p>
+      </div>
+      <p class="card-summary">{{ item.stored.job.summary }}</p>
+      <div class="evidence-counts"><span>{{ item.strengths|length }} supported</span><span>{{ item.unknowns|length }} unknown</span><span>{{ item.conflicts|length }} conflict{% if item.conflicts|length != 1 %}s{% endif %}</span></div>
+      {% if item.stored.result.commutes %}<div class="commute-chips">{% for commute in item.stored.result.commutes %}{% set route_state = commute|commute_state %}<span class="route-{{ route_state }}" title="{{ route_state|title }}{% if commute.estimate.message %} · {{ commute.estimate.message }}{% endif %}">{% if commute.estimate.duration_minutes %}{% if commute.estimate.duration_low_minutes and commute.estimate.duration_high_minutes and commute.estimate.duration_low_minutes != commute.estimate.duration_high_minutes %}{{ commute.estimate.duration_low_minutes|duration }}–{{ commute.estimate.duration_high_minutes|duration }}{% else %}{{ commute.estimate.duration_minutes|duration }}{% endif %} {{ commute.mode.value }}{% elif commute.estimate.status.value == 'needs_precise_location' %}{{ commute.mode.value|title }} needs an address{% else %}{{ commute.mode.value|title }} unavailable{% endif %}</span>{% endfor %}</div>{% endif %}
+      <div class="card-footer"><span><strong data-card-score data-match-score>{{ item.stored.result.score }}</strong>/100 compatibility</span><span class="text-link">See evidence →</span></div>
+    {% else %}
+      <div class="locked-copy"><span aria-hidden="true">◇</span><h3>Another matched opportunity is ready</h3><p>Its identity and evidence stay closed because this profile has already received {{ groups.free_limit }} free recommendations.</p></div>
+      <div class="card-footer"><span>{{ item.stored.result.disposition.value|title }}</span><span>{{ item.stored.result.hard_evidence_coverage }}% boundary evidence</span></div>
+    {% endif %}
+  {% if item.accessible %}</a>{% endif %}
+  {% if item.accessible and current_persona %}
+    {% set rating_record_id = item.record.id %}{% set rating_job_title = item.stored.job.title %}{% set compact_include_employer = true %}{% include "job_rating_control.html" %}
+  {% endif %}
+  {% if selection_mode and item.accessible %}
+    <div class="card-actions-row">
+      <label class="card-selector delete-selector"><input type="checkbox" name="record_ids" value="{{ item.record.id }}" data-select-item><span>Delete job</span></label>
+      {% if draft_count %}<a class="card-draft-link" href="{{ url_for('apply') }}?job={{ item.record.id }}">{{ draft_count }} Cover Letter{{ '' if draft_count == 1 else 's' }}</a>{% endif %}
+      <div class="card-application-control">
+        <label>
+          <span>State</span>
+          <select data-application-state data-current-state="{{ current_application_state }}" data-state-url="{{ url_for('job_application_state', record_id=item.record.id) }}" aria-label="Application state for {{ item.stored.job.title }}">
+            {% for state, label in application_labels.items() %}<option value="{{ state.value }}" {% if state.value == current_application_state %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <small data-application-state-status aria-live="polite"></small>
+      </div>
+    </div>
+  {% endif %}
+</article>

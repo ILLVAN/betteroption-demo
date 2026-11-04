@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ posting.title }} · {{ posting.employer_name }}{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">Employer-published job</p>
+    <h1>{{ posting.title }}</h1>
+    <p><strong>{{ posting.employer_name }}</strong> · {{ posting.location }} · {{ posting.work_model }}</p>
+  </header>
+  <section class="account-layout">
+    <article class="panel">
+      <h2>About this role</h2>
+      <p>{{ posting.summary }}</p>
+      <div class="source-copy">{{ posting.description }}</div>
+    </article>
+    <aside class="panel">
+      <p class="eyebrow">Apply with the employer</p>
+      <h2>Application channel</h2>
+      {% if posting.application_url %}
+        <a class="primary-button" href="{{ posting.application_url }}" rel="external nofollow">Open application page</a>
+      {% endif %}
+      {% if posting.application_email %}
+        <p><a class="text-link" href="mailto:{{ posting.application_email }}">{{ posting.application_email }}</a></p>
+      {% endif %}
+      <p class="form-help">WorkLifeBalance does not receive or submit this application.</p>
+    </aside>
+  </section>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Explore · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="page-heading explore-heading">
+    <div>
+      <p class="eyebrow">Discover before you decide</p>
+      <h1>Look beyond the jobs already on your shelf.</h1>
+      <p>Search recent employer and ATS listings without changing your Compass. Select only the roles worth verifying, saving, and matching.</p>
+    </div>
+  </section>
+
+  {% include "compass_integrity_notice.html" %}
+
+  <form class="panel explore-search" method="post" action="{{ url_for('explore_search') }}" data-busy-message="Starting your background Explore search…">
+    <div class="compass-search-primary">
+      <div><p class="eyebrow">Recommended</p><h2>Search from your Compass</h2><p>Use your direction, skills, location, seniority, exclusions, and work arrangement together.</p></div>
+      <button class="primary-button" type="submit" name="use_compass" value="true" formnovalidate{% if compass_explore_allowed is defined and not compass_explore_allowed %} disabled aria-disabled="true" title="Review the Compass point above first"{% endif %}>Search with Compass <span aria-hidden="true">→</span></button>
+    </div>
+    <details class="manual-explore" {% if query_text and not compass_used %}open{% endif %}>
+      <summary>Or search with your own phrase</summary>
+      <div class="explore-search-grid">
+        <label>Role, skill, or keyword<input type="search" name="q" value="{{ query_text }}" minlength="2" maxlength="400" required placeholder="Embedded software, test automation, Python…"></label>
+        <label>Location <small>Optional</small><input type="search" name="location" value="{{ location }}" maxlength="200" placeholder="Frankfurt, Hessen, remote…"></label>
+      </div>
+      <button class="secondary-button" type="submit">Search these fields</button>
+    </details>
+    <details class="explore-control-disclosure">
+      <summary>Filters</summary>
+      <div class="explore-disclosure-body">
+        <div class="explore-scope-controls" aria-label="Explore scope">
+          <label class="switch-row"><input type="checkbox" data-remote-filter {% if hide_remote_only %}checked{% endif %}><span><strong>Hide remote-only</strong><small>This filters the current results instantly without running a new search.</small></span></label>
+          <label class="switch-row"><input type="checkbox" data-remote-only-filter><span><strong>Remote only</strong><small>Instantly show only remote roles from these results.</small></span></label>
+          <label class="switch-row{% if not custom_portal_count or not custom_portal_search_available %} is-disabled{% endif %}"><input type="checkbox" name="include_custom_portals" value="true" {% if include_custom_portals and custom_portal_count and custom_portal_search_available %}checked{% endif %} {% if not custom_portal_count or not custom_portal_search_available %}disabled{% endif %}><span><strong>Include custom portals</strong><small>{% if not custom_portal_count %}Add an employer portal under Add first.{% elif not custom_portal_search_available %}Enable and configure Brave Search or Exa to use saved portal hints.{% else %}On the next search, include up to 5 of your {{ custom_portal_count }} enabled saved portal scope{% if custom_portal_count != 1 %}s{% endif %}.{% endif %}</small></span></label>
+          <label class="switch-row"><input type="checkbox" name="worldwide" value="true" {% if worldwide %}checked{% endif %}><span><strong>Worldwide</strong><small>On the next search, allow roles outside the origin continent.</small></span></label>
+          <label class="explore-distance-filter" for="explore-max-distance">
+            <span><strong>Maximum distance</strong><small>Filters resolved non-remote roles instantly. Remote roles and unresolved locations stay available.</small></span>
+            <input id="explore-max-distance" type="range" min="0" max="40" step="1" value="21" data-max-distance-filter data-distance-stops="5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100,125,150,175,200,225,250,275,300,325,350,375,400,425,450,475,500,600,700,800,900,1000" aria-valuemin="5" aria-valuemax="1000" aria-valuenow="150" aria-describedby="explore-max-distance-output">
+            <output id="explore-max-distance-output" for="explore-max-distance" data-max-distance-output aria-live="polite">150 km</output>
+          </label>
+        </div>
+        <p class="form-help">{{ stored_count }}/{{ max_stored_jobs }} Archive slots used. Search results use no slot until selected.</p>
+      </div>
+    </details>
+    <details class="explore-control-disclosure explore-info-disclosure">
+      <summary>Info</summary>
+      <div class="explore-disclosure-body">
+        {% if compass_used %}<p class="gentle-note">This query came from your confirmed role, direction, skills, origin, seniority, exclusions, and work arrangement. <strong>{{ work_arrangement }}.</strong> By default, Explore stays on the origin continent and keeps roughly two-hour local possibilities first, then remote and farther stretch options. Enable Worldwide when crossing continents is intentional. Explicit title-level seniority conflicts are moved to the tail; salary, culture, and actual commute remain deeper Match checks.</p>{% else %}<p class="form-help">Your own phrase searches recent public listings without changing the confirmed preferences in your Compass. Matching applies the deeper salary, culture, and travel checks after you select a role.</p>{% endif %}
+        <p class="form-help">A complete run calls every configured and account-enabled source concurrently. Slow actor and structured-search responses can make Explore take five to seven minutes; the task remains stored if you leave the page.</p>
+        {% if not enhanced_discovery_enabled %}<p class="form-help">The keyless sources are active. Configure Brave Search or Exa to broaden employer-page discovery. Selected URLs still pass the normal safety, robots, and reachability checks.</p>{% endif %}
+      </div>
+    </details>
+  </form>
+
+  {% if search_error %}<div class="flash error" role="alert">{{ search_error }}</div>{% endif %}
+
+  {% if provider_activity %}
+    <details class="panel explore-source-disclosure">
+      <summary id="explore-source-run-title"><span><small>Secret-safe diagnostics</small><strong>What the last source run contributed</strong></span><span class="soft-status">No queries, URLs, responses, or keys stored</span></summary>
+      <div class="explore-source-disclosure-body" aria-labelledby="explore-source-run-title">
+        <label class="explore-provider-master{% if not filterable_provider_count %} is-disabled{% endif %}">
+          <input type="checkbox" data-provider-filter-all {% if filterable_provider_count %}checked{% else %}disabled{% endif %}>
+          <span><strong>Show all contributing sources</strong><small>These checkboxes filter the current result cards only. They do not run another search.</small></span>
+        </label>
+        <div class="readiness-list" data-provider-filter-list>
+          {% for item in provider_activity %}
+            <article class="readiness-item {{ 'is-ready' if item.status in ('Reached', 'Included') else 'needs-work' }}">
+              <label class="explore-provider-choice{% if not item.filterable %} is-disabled{% endif %}" title="{% if item.filterable %}Show or hide results supplied by {{ item.label }}{% else %}This source has no filterable result in the current list{% endif %}">
+                <input type="checkbox" value="{{ item.provider }}" data-provider-filter aria-label="Show results supplied by {{ item.label }}" {% if item.filterable %}checked{% else %}disabled{% endif %}>
+                <span class="readiness-mark" aria-hidden="true">{{ '✓' if item.status in ('Reached', 'Included') else '!' }}</span>
+              </label>
+              <div>
+                <strong>{{ item.label }} · {{ item.status }}</strong>
+                <p>{{ item.contribution }}</p>
+                {% if item.guidance %}<p>{{ item.guidance }}</p>{% endif %}
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+        <p class="form-help">A reached provider can legitimately contribute zero final rows. A returned candidate is still removed when it fails source policy, duplicates another URL, or falls outside the bounded final ranking.</p>
+      </div>
+    </details>
+  {% endif %}
+
+  {% if query_text %}
+    <section class="section-block" aria-labelledby="explore-results-heading">
+      <div class="section-heading"><div><p class="eyebrow">Public discoveries</p><h2 id="explore-results-heading"><span data-visible-result-count>{{ results|length }}</span> <span data-visible-result-label>role{% if results|length != 1 %}s{% endif %}</span> worth scanning</h2><p>Approximate proximity and Compass relevance keep the most useful roles near the top. Exact travel time starts only when you run Matching.</p>{% if location %}<p class="form-help"><strong>{{ regional_result_count }} resolved regional role{% if regional_result_count != 1 %}s{% endif %}</strong> are non-remote and within the 150 km Explore radius. The bounded search keeps expanding locally until it reaches 30 or exhausts its searches.</p>{% endif %}</div>{% if provider_attributions %}<details class="portal-links-disclosure"><summary>Portal Links</summary><div class="source-attributions">{% for source in provider_attributions %}<a class="source-url" href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.label }} ↗</a>{% endfor %}</div></details>{% endif %}</div>
+      {% if results %}
+        <form method="post" action="{{ url_for('explore_save') }}" data-selection-form data-slot-limit="{{ available_slots }}" data-busy-message="Verifying and extracting the selected job sources…">
+          {% if source_explore_task_id %}<input type="hidden" name="source_explore_task_id" value="{{ source_explore_task_id }}">{% endif %}
+          <div class="selection-toolbar panel"><label class="switch-row"><input type="checkbox" data-select-all><span><strong>Select all visible</strong><small>You can adjust individual roles below.</small></span></label><span data-selection-count>0 selected</span><span class="slot-warning" data-slot-warning hidden></span><div class="inline-actions"><button class="secondary-button" type="submit" name="destination" value="archive">Save to Archive</button><button class="primary-button" type="submit" name="destination" value="matching" data-slot-sensitive>Save and run Match <span aria-hidden="true">→</span></button></div></div>
+          <div class="explore-grid explore-results-list">
+            {% for job in results %}
+              <article class="panel explore-card explore-result-row" data-explore-card data-explore-id="{{ job.external_id }}" data-source-url="{{ job.source_url }}" data-remote-only="{{ 'true' if job.remote else 'false' }}" data-distance-km="{{ job.distance_km if job.distance_km is not none else '' }}" data-source-providers="{{ job.effective_source_providers|join('|') }}" data-source-readiness="{{ job.source_readiness.value }}">
+                <div class="explore-result-primary">
+                  <div class="explore-result-meta">
+                    <label class="explore-selector"><input type="checkbox" name="selected_urls" value="{{ job.source_url }}" data-select-item><span>Select</span></label>
+                    <p class="company" title="{{ job.company }}">{{ job.company }}</p>
+                    <p class="location" title="{{ job.location }}{% if job.remote %} · Remote{% endif %}">{{ job.location }}{% if job.remote %} · Remote{% endif %}</p>
+                  </div>
+                  <h3 class="explore-result-title"><a href="{{ job.source_url }}" target="_blank" rel="noopener noreferrer">{{ job.title }}</a></h3>
+                </div>
+                <div class="explore-result-evidence">
+                  <div class="search-rank" aria-label="Explore ordering evidence">
+                    <span><strong>{{ job.search_score or 0 }}%</strong> Explore rank</span>
+                    <span><strong>{{ job.compass_relevance if job.compass_relevance is not none else job.keyword_relevance or 0 }}%</strong> role fit</span>
+                    {% if job.seniority_relevance is not none %}<span><strong>{{ job.seniority_relevance }}%</strong> seniority</span>{% endif %}
+                    {% if job.distance_km is not none %}<span><strong>{{ job.distance_km }} km</strong> straight line</span>{% elif job.remote %}<span><strong>Remote</strong> proximity</span>{% else %}<span><strong>Unknown</strong> distance</span>{% endif %}
+                  </div>
+                  <div class="job-tags">
+                    {% set is_own_job = 'betteroption-posted' in job.effective_source_providers %}
+                    {% if is_own_job %}<span class="explore-own-badge" title="Published through the verified employer input">Own</span>{% endif %}
+                    {% if not is_own_job or job.provider != 'betteroption-posted' %}<span class="explore-provider-badge" title="Discovery source; this does not affect ranking">{{ explore_provider_labels.get(job.provider, job.provider|replace('-', ' ')|title) }}</span>{% endif %}
+                    {% if job.source_readiness.value == 'ready' %}<span class="explore-readiness-badge is-ready" title="WorkLifeBalance checked this individual job page during Explore. Saving still performs a fresh verification and extraction.">Source checked</span>{% elif job.source_readiness.value == 'manual_required' %}<a class="explore-readiness-badge is-manual" href="{{ url_for('add_jobs') }}?url={{ job.source_url|string|urlencode }}&amp;manual=true#manual-job-input" title="Open Add with this source attached and paste the public advertisement text.">Needs pasted text</a>{% else %}<span class="explore-readiness-badge is-listed" title="A structured provider listed this vacancy. WorkLifeBalance will verify the individual source when you save it.">Verify on save</span>{% endif %}
+                    {% if job.published_at %}<span class="explore-posting-date">Posted <time datetime="{{ job.published_at.isoformat() }}">{{ job.published_at.astimezone().strftime('%d %b %Y') }}</time></span>{% else %}<span class="explore-posting-date">Posted date not stated</span>{% endif %}
+                    {% if job.published_at %}<span class="posting-age-badge explore-posting-age-badge" data-explore-published-at="{{ job.published_at.isoformat() }}" hidden></span>{% endif %}
+                    {% if job.exclusion_signals %}<span class="explore-exclusion-badge" title="Conflicts with an explicit Compass exclusion">⚠ Compass conflict: {{ job.exclusion_signals|join(', ') }}</span>{% endif %}
+                    {% for tag in job.tags[:8] %}{% if tag not in explore_hidden_source_tags and not tag.startswith('Source:') and not tag.startswith('Published via ') %}<span>{{ tag }}</span>{% endif %}{% endfor %}
+                  </div>
+                </div>
+                <div class="explore-result-context">
+                  {% if job.summary %}<p class="explore-summary">{{ job.summary[:300] }}{% if job.summary|length > 300 %}…{% endif %}</p>{% endif %}
+                  <div class="card-footer"><a class="text-link" href="{{ job.source_url }}" target="_blank" rel="noopener noreferrer">Inspect source ↗</a></div>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </form>
+      {% else %}
+        <div class="panel empty-state wide"><span aria-hidden="true">⌁</span><h3>No result from the current sources</h3><p>Try fewer words or use Compass search. Location is already treated as an origin rather than an exact-city filter, so nearby roles are not intentionally hidden.</p></div>
+      {% endif %}
+    </section>
+  {% else %}
+    <section class="panel empty-state wide explore-empty"><span aria-hidden="true">⌕</span><h2>Start with your Compass—or one broad phrase.</h2><p>Use the confirmed direction you already built, or search naturally for “embedded Linux around Frankfurt.” Explore keeps nearby roles visible; Matching applies the deeper boundaries later.</p></section>
+  {% endif %}
+{% endblock %}

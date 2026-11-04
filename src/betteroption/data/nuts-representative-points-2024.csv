@@ -1,0 +1,8 @@
+nuts_id,country_code,region_name,representative_place,geoname_id,latitude,longitude,precision,selection_basis,source_snapshot
+DE24C,DE,Lichtenfels,Lichtenfels,2878074,50.14567,11.05928,regional_representative,municipality matching the official region name,geonamescache-3.0.2
+DE600,DE,Hamburg,Hamburg,2911298,53.55073,9.99302,regional_representative,municipality matching the official region name,geonamescache-3.0.2
+DE724,DE,Marburg-Biedenkopf,Marburg an der Lahn,2873759,50.80904,8.77069,regional_representative,principal named labour-market city in the region,geonamescache-3.0.2
+DE93B,DE,Verden,Verden,2817599,52.92334,9.23804,regional_representative,municipality matching the official region name,geonamescache-3.0.2
+DEB32,DE,"Kaiserslautern, Kreisfreie Stadt",Kaiserslautern,2894003,49.44300,7.77161,regional_representative,municipality matching the official region name,geonamescache-3.0.2
+SE224,SE,Skåne län,Malmö,2692969,55.60587,13.00073,regional_representative,largest regional labour-market city,geonamescache-3.0.2
+SE232,SE,Västra Götalands län,Gothenburg,2711537,57.70716,11.96679,regional_representative,largest regional labour-market city,geonamescache-3.0.2

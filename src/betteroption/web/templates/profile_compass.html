@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Compass · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="page-heading compass-heading">
+    <div>
+      <p class="eyebrow">Your editable direction</p>
+      <h1>Change one thing without starting over.</h1>
+      <p>Add a detail to any section, correct a saved statement, or remove one. Your other decisions stay untouched.</p>
+    </div>
+  </section>
+
+  {% include "compass_integrity_notice.html" %}
+
+  <section class="panel primary-action-shell compass-primary-action-shell" aria-labelledby="compass-primary-title">
+    <div class="primary-action-tile compass-primary-action">
+      <div class="primary-action-copy">
+        <p class="eyebrow">Recommended</p>
+        <h2 id="compass-primary-title">{{ 'Continue with guided setup' if has_guided_work else 'Review your guided setup' }}</h2>
+        <p>{{ 'Answer one focused question at a time, then edit any saved statement here.' if has_guided_work else 'Your guided setup is complete. Reopen it whenever you want to review the path through your Compass.' }}</p>
+      </div>
+      <div class="compass-action-stack">
+        <a class="primary-button" href="{{ url_for('profile_guided', workspace_id=workspace.id) }}">{{ 'Guided setup' if has_guided_work else 'Review guided setup' }} <span aria-hidden="true">→</span></a>
+        <div class="primary-action-buttons compass-secondary-actions" aria-label="Other next steps">
+          <a class="secondary-button" href="{{ url_for('add_jobs') }}">Add a job</a>
+          <a class="secondary-button" href="{{ url_for('explore') }}">Explore jobs</a>
+          <a class="secondary-button" href="{{ url_for('matches') }}">Open Matching</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="compass-summary panel" aria-label="Compass summary">
+    <div><strong>{{ workspace.session.completed_count }}/{{ workspace.session.sections|length }}</strong><span>sections complete</span></div>
+    <div><strong>{{ confirmed_count }}</strong><span>active statements</span></div>
+    <div class="summary-progress"><span>{{ progress_percent }}% setup progress</span><div class="progress-track"><span style="width: {{ progress_percent }}%"></span></div></div>
+    {% if matches_are_current is sameas false %}<p class="gentle-note">Your Compass changed after the latest result set. Open Matching and run it again to see the effect.</p>{% endif %}
+  </section>
+
+  <details class="section-block panel cv-section v072-compass-main-tile v072-cv-tile" aria-labelledby="cv-heading">
+    <summary>
+      <div><p class="eyebrow">Optional candidate evidence</p><h2 id="cv-heading">Add CV evidence privately</h2><p>Upload, inspect, and approve only the experience text you want to use.</p></div>
+      <span class="soft-status">Expand</span>
+    </summary>
+    <div class="v072-compass-tile-body">
+      <p class="form-help">PDF, DOCX, or TXT is parsed on this server. The file is not stored or sent to OpenAI. Common identifiers are removed locally, apparent prohibited sensitive data stops the flow, and you edit the exact experience/skills text before a separate optional OpenAI request.</p>
+      <div class="split-layout">
+      <form class="form-panel" method="post" enctype="multipart/form-data" action="{{ url_for('profile_cv_upload', workspace_id=workspace.id) }}" data-busy-message="Parsing locally, removing identifiers, and preparing your private preview…">
+        <label>CV file<input type="file" name="cv_file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" required><small>Maximum 5 MB. Scanned PDFs need OCR before upload.</small></label>
+        <aside class="gentle-note"><strong>Do not upload sensitive data.</strong><p>Remove health/disability, ethnicity, religion, politics, union, sexual, biometric/genetic, criminal-offence, background-check and security-clearance information. Local screening helps but cannot guarantee detection.</p></aside>
+        <label class="switch-row"><input type="checkbox" name="acknowledge_cv_rules" value="true" required><span><strong>I understand the file is optional and prohibited data must be removed</strong><small>This prepares a local preview only. It is not yet permission to send text to OpenAI.</small></span></label>
+        <p class="form-help"><a class="text-link" href="{{ url_for('ai_notice') }}" target="_blank" rel="noopener">Read the AI notice</a> · <a class="text-link" href="{{ url_for('privacy_notice') }}" target="_blank" rel="noopener">Read the Privacy Notice</a></p>
+        <button class="primary-button" type="submit">Prepare private preview</button>
+      </form>
+      <div class="reference-list">
+        {% if cv_documents %}
+          <div class="flash error" role="alert">Legacy saved CV text exists from an earlier build. It cannot be sent to OpenAI through this flow. Delete it before reopening the alpha.</div>
+          {% for document in cv_documents %}
+            <article class="panel cv-document">
+              <div><p class="eyebrow">Legacy saved text</p><h3>{{ document.filename }}</h3><p>{{ document.text_characters }} characters · {{ (document.file_size / 1024)|round|int }} KB · uploaded {{ document.uploaded_at.astimezone().strftime('%d %b %Y, %H:%M') }}</p><p class="form-help">For minimisation, this saved text can only be deleted. Upload a cleaned source again to use the preview flow.</p></div>
+              <div class="stacked-actions">
+                <form method="post" action="{{ url_for('profile_cv_delete', workspace_id=workspace.id, document_id=document.id) }}"><label class="switch-row"><input type="checkbox" name="confirm_delete" value="true" required><span>Confirm deletion</span></label><button class="danger-button" type="submit">Delete CV text</button></form>
+              </div>
+            </article>
+          {% endfor %}
+        {% else %}
+          <div class="panel empty-state"><span aria-hidden="true">⌁</span><h3>No CV text stored</h3><p>This is the intended alpha state. Manual Compass entry remains available.</p></div>
+        {% endif %}
+      </div>
+    </div>
+    </div>
+  </details>
+
+  <section class="section-block" aria-labelledby="compass-sections-heading">
+    <div class="section-heading"><div><p class="eyebrow">Nine focused areas</p><h2 id="compass-sections-heading">Edit exactly what changed</h2><p>Your own answers are interpreted and added immediately. If AI structuring is unavailable, the original wording is still saved locally as an editable statement. Every statement remains visible, editable, and removable, while earlier manual corrections stay protected.</p></div></div>
+    <div class="compass-section-grid">
+      {% for card in section_cards %}
+        <article class="panel compass-section-card" id="section-{{ card.definition.section.value }}">
+          <div class="card-topline">
+            <span class="section-number">{{ loop.index }}</span>
+            <span class="soft-status status-{{ card.progress.status.value }}">{{ card.progress.status.value|replace('_', ' ')|title }}</span>
+          </div>
+          <div>
+            <h3>{{ card.definition.title }}</h3>
+            <p>{{ card.definition.guidance }}</p>
+          </div>
+
+          {% if card.definition.section.value == 'location_mobility' %}
+            <form
+              class="mobility-preference-editor{% if mobility_preferences.is_active %} is-active{% endif %}"
+              method="post"
+              action="{{ url_for('profile_mobility_preferences', workspace_id=workspace.id) }}"
+              data-mobility-preferences
+              data-suggestion-url="{{ url_for('profile_location_suggestions', workspace_id=workspace.id) }}"
+              data-preserve-scroll
+            >
+              <div class="mobility-preference-heading">
+                <div>
+                  <strong>Nearby starting point and commute limits</strong>
+                  <span>Optional until you use it</span>
+                </div>
+                <details class="compact-help">
+                  <summary aria-label="Location privacy and matching help">?</summary>
+                  <p>Choose a station, parking area, or another nearby public place—not your home address. A mode set to 0 stays neutral.</p>
+                </details>
+              </div>
+              <label class="mobility-origin-field" for="mobility-origin-label">
+                <span>Nearby public starting point</span>
+                <input
+                  id="mobility-origin-label"
+                  name="origin_label"
+                  value="{{ mobility_preferences.origin_label }}"
+                  maxlength="200"
+                  autocomplete="off"
+                  list="mobility-origin-suggestions"
+                  placeholder="e.g. München Hauptbahnhof"
+                  data-mobility-origin
+                >
+              </label>
+              <datalist id="mobility-origin-suggestions" data-mobility-suggestions></datalist>
+              <div class="mobility-limit-list" aria-label="Optional maximum one-way commute">
+                {% for mode, label, icon, minutes in [
+                  ('car', 'Car', '🚗', mobility_preferences.car_minutes),
+                  ('transit', 'Train', '🚆', mobility_preferences.transit_minutes),
+                  ('bicycle', 'Bicycle', '🚲', mobility_preferences.bicycle_minutes)
+                ] %}
+                  <label class="mobility-limit-row{% if minutes %} is-active{% endif %}" for="mobility-{{ mode }}-minutes">
+                    <span class="mobility-mode-icon mobility-mode-{{ mode }}" aria-hidden="true">{{ icon }}</span>
+                    <span class="mobility-mode-name">{{ label }}</span>
+                    <input
+                      id="mobility-{{ mode }}-minutes"
+                      name="{{ mode }}_minutes"
+                      type="range"
+                      min="0"
+                      max="360"
+                      step="5"
+                      value="{{ minutes }}"
+                      data-mobility-limit
+                    >
+                    <output for="mobility-{{ mode }}-minutes" data-mobility-output>{{ (minutes|string ~ ' min') if minutes else 'Not set' }}</output>
+                  </label>
+                {% endfor %}
+              </div>
+              <button class="secondary-button" type="submit">Save location and mobility</button>
+            </form>
+          {% endif %}
+
+          {% if card.definition.section.value == 'compensation_time' %}
+            {% set saved_minimum = workspace.session.profile.compensation.minimum_gross_annual %}
+            {% set saved_target = workspace.session.profile.compensation.target_gross_annual %}
+            {% set saved_currency = workspace.session.profile.compensation.currency %}
+            <form class="compensation-range-editor" method="post" action="{{ url_for('profile_compensation_range', workspace_id=workspace.id) }}" aria-describedby="compensation-range-help" data-compensation-range data-preserve-scroll>
+              <div class="compensation-range-heading">
+                <strong>Annual gross salary range</strong>
+                <label class="compensation-currency-field" for="compensation-currency">
+                  <span class="visually-hidden">Salary currency</span>
+                  <select id="compensation-currency" name="currency" aria-label="Salary currency">
+                    {% for currency in compensation_currencies %}<option value="{{ currency }}"{% if currency == saved_currency %} selected{% endif %}>{{ currency }}</option>{% endfor %}
+                  </select>
+                  <small>0–300k</small>
+                </label>
+              </div>
+              <div class="compensation-range-fields">
+                <label for="minimum-gross-annual">
+                  <span>Minimum</span>
+                  <select id="minimum-gross-annual" name="minimum_gross_annual" required>
+                    {% for amount in range(0, 300001, 1000) %}<option value="{{ amount }}"{% if amount == (saved_minimum if saved_minimum is not none else 0) %} selected{% endif %}>{{ '0' if amount == 0 else (amount // 1000)|string ~ 'k' }}</option>{% endfor %}
+                  </select>
+                </label>
+                <span class="compensation-range-separator" aria-hidden="true">to</span>
+                <label for="target-gross-annual">
+                  <span>Optional target</span>
+                  <select id="target-gross-annual" name="target_gross_annual">
+                    <option value=""{% if saved_target is none %} selected{% endif %}>Not set</option>
+                    {% for amount in range(0, 300001, 1000) %}<option value="{{ amount }}"{% if amount == saved_target %} selected{% endif %}>{{ '0' if amount == 0 else (amount // 1000)|string ~ 'k' }}</option>{% endfor %}
+                  </select>
+                </label>
+              </div>
+              <details id="compensation-range-help" class="compact-help"><summary>How salary affects Matching</summary><p>Minimum is the boundary. An optional target adds a preference; leaving it unset is neutral. The selected ISO currency is saved with both amounts. Matching compares only same-currency evidence and does not invent an exchange rate.</p></details>
+              <button class="secondary-button" type="submit">Save salary range</button>
+            </form>
+          {% endif %}
+
+          {% if card.definition.section.value == 'experience' %}
+            <section class="v072-language-tile" id="spoken-languages" aria-labelledby="spoken-languages-heading" data-language-catalog>
+              <div class="v072-language-heading">
+                <div><strong id="spoken-languages-heading">Spoken languages</strong><span>Optional · no language is assumed</span></div>
+                <span class="soft-status" data-language-selected-count>{{ spoken_language_selections|length }} selected</span>
+              </div>
+              <form method="post" action="{{ url_for('profile_spoken_languages', workspace_id=workspace.id) }}" data-preserve-scroll>
+                <label class="v072-catalog-search" for="spoken-language-search"><span>Search the language catalog</span><input id="spoken-language-search" type="search" autocomplete="off" placeholder="Start typing a language…" data-language-search aria-controls="spoken-language-options"></label>
+                <p class="v072-catalog-count" aria-live="polite" data-language-count></p>
+                <div class="v072-language-options" id="spoken-language-options" aria-label="Spoken language choices">
+                  {% for language in spoken_languages %}
+                    {% set selected_level = spoken_language_selections.get(language) %}
+                    {% set mentioned = language in spoken_language_mentions %}
+                    {% set slider_value = proficiency_slider_indexes.get(selected_level.value, 2) if selected_level else 2 %}
+                    <div class="v072-language-option{% if selected_level %} is-selected{% elif mentioned %} is-mentioned{% endif %}" data-language-option data-search-text="{{ language|lower }}">
+                      <input id="spoken-language-{{ loop.index }}" type="checkbox" name="language_name" value="{{ language }}"{% if selected_level %} checked{% endif %} data-language-enable>
+                      <label for="spoken-language-{{ loop.index }}"><span>{{ language }}</span>{% if mentioned and not selected_level %}<small class="v072-language-mention">Found in Compass · choose a level</small>{% endif %}</label>
+                      <label class="visually-hidden" for="spoken-level-{{ loop.index }}">{{ language }} proficiency</label>
+                      <div class="v072-proficiency-slider">
+                        <input id="spoken-level-{{ loop.index }}" name="proficiency::{{ language }}" type="range" min="0" max="3" step="1" value="{{ slider_value }}" data-language-level data-language-level-labels="Beginner|Intermediate|Professional|Native" aria-label="{{ language }} proficiency" aria-describedby="spoken-level-output-{{ loop.index }}"{% if not selected_level %} disabled{% endif %}>
+                        <output id="spoken-level-output-{{ loop.index }}" for="spoken-level-{{ loop.index }}" data-language-level-output>{{ practical_proficiencies[slider_value].value|title }}</output>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+                <button class="secondary-button" type="submit">Save spoken languages</button>
+              </form>
+            </section>
+
+            <details class="v072-language-tile v072-programming-language-tile" id="programming-languages" data-language-catalog>
+              <summary><span><strong>Programming languages</strong><small>Optional candidate evidence</small></span><span class="soft-status" data-language-selected-count>{{ programming_language_selections|length }} selected</span></summary>
+              <form method="post" action="{{ url_for('profile_programming_languages', workspace_id=workspace.id) }}" data-preserve-scroll>
+                <p class="form-help">Choose only languages you can use. The top level is shown as expert/native-level for this technical catalog.</p>
+                <label class="v072-catalog-search" for="programming-language-search"><span>Search the programming-language catalog</span><input id="programming-language-search" type="search" autocomplete="off" placeholder="e.g. Python, C++, VHDL…" data-language-search aria-controls="programming-language-options"></label>
+                <p class="v072-catalog-count" aria-live="polite" data-language-count></p>
+                <div class="v072-language-options" id="programming-language-options" aria-label="Programming language choices">
+                  {% for language in programming_languages %}
+                    {% set selected_level = programming_language_selections.get(language) %}
+                    {% set mentioned = language in programming_language_mentions %}
+                    {% set slider_value = proficiency_slider_indexes.get(selected_level.value, 2) if selected_level else 2 %}
+                    <div class="v072-language-option{% if selected_level %} is-selected{% elif mentioned %} is-mentioned{% endif %}" data-language-option data-search-text="{{ language|lower }}">
+                      <input id="programming-language-{{ loop.index }}" type="checkbox" name="language_name" value="{{ language }}"{% if selected_level %} checked{% endif %} data-language-enable>
+                      <label for="programming-language-{{ loop.index }}"><span>{{ language }}</span>{% if mentioned and not selected_level %}<small class="v072-language-mention">Found in Compass · choose a level</small>{% endif %}</label>
+                      <label class="visually-hidden" for="programming-level-{{ loop.index }}">{{ language }} proficiency</label>
+                      <div class="v072-proficiency-slider">
+                        <input id="programming-level-{{ loop.index }}" name="proficiency::{{ language }}" type="range" min="0" max="3" step="1" value="{{ slider_value }}" data-language-level data-language-level-labels="Beginner|Intermediate|Professional|Expert / native-level" aria-label="{{ language }} proficiency" aria-describedby="programming-level-output-{{ loop.index }}"{% if not selected_level %} disabled{% endif %}>
+                        <output id="programming-level-output-{{ loop.index }}" for="programming-level-{{ loop.index }}" data-language-level-output>{{ 'Expert / native-level' if practical_proficiencies[slider_value].value == 'native' else practical_proficiencies[slider_value].value|title }}</output>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+                <button class="secondary-button" type="submit">Save programming languages</button>
+              </form>
+            </details>
+          {% endif %}
+
+          {% if card.raw_answer %}
+            <details class="saved-answer">
+              <summary>Read saved input</summary>
+              <p>{{ card.raw_answer }}</p>
+            </details>
+          {% else %}
+            <p class="empty-copy">No answer saved yet. You can fill just this section below.</p>
+          {% endif %}
+
+          {% if card.facts %}
+            <div class="saved-facts">
+              <h4>Active statements</h4>
+              {% for fact in card.facts %}
+                <details class="saved-fact" id="fact-{{ fact.id }}">
+                  <summary><span class="fact-level">{{ fact.level.value|replace('_', ' ')|title }}</span><strong>{{ fact.value }}</strong></summary>
+                  <form method="post" action="{{ url_for('profile_saved_fact_action', workspace_id=workspace.id, fact_id=fact.id) }}">
+                    <label>Wording<input name="new_value" value="{{ fact.value }}" maxlength="1000" required></label>
+                    <label>Category<select name="new_level">{% for level in levels %}<option value="{{ level.value }}" {% if level == fact.level %}selected{% endif %}>{{ level.value|replace('_', ' ')|title }}</option>{% endfor %}</select></label>
+                    <div class="inline-actions">
+                      <button class="secondary-button" name="action" value="edit_value" type="submit">Save statement</button>
+                      <button class="quiet-button destructive-text" name="action" value="reject" type="submit" formnovalidate>Remove from matching</button>
+                    </div>
+                  </form>
+                </details>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <details class="section-addition" {% if not card.raw_answer %}open{% endif %}>
+            <summary>{{ 'Answer this section' if not card.raw_answer else 'Add a detail or correction' }}</summary>
+              <form method="post" action="{{ url_for('profile_section_detail', workspace_id=workspace.id, section=card.definition.section.value) }}" data-busy-message="Understanding this addition and updating your Compass…" data-preserve-scroll>
+              <label for="section-input-{{ card.definition.section.value }}"><span>{{ card.definition.question }}</span><textarea id="section-input-{{ card.definition.section.value }}" name="answer" rows="4" maxlength="20000" required placeholder="{{ card.definition.example }}" data-autogrow></textarea></label>
+              <div class="suggestion-chips" aria-label="Ideas you can add with Tab and Enter">
+                {% for suggestion in card.definition.suggestions %}<button type="button" data-suggestion-target="section-input-{{ card.definition.section.value }}" data-suggestion-text="{{ suggestion }}">{{ suggestion }}</button>{% endfor %}
+              </div>
+              <p class="form-help">Existing statements remain active until you edit or remove them above. Provider failure never discards this submitted text.</p>
+              <button class="primary-button" type="submit">Add to Compass <span aria-hidden="true">→</span></button>
+            </form>
+          </details>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <details class="profile-reset compass-reset panel">
+    <summary>Start an entirely new Compass</summary>
+    <p>Use this only when your overall direction changed. For ordinary corrections, edit one section above.</p>
+    <form class="stacked-form" method="post" action="{{ url_for('profile_start') }}">
+      <label class="switch-row"><input type="checkbox" name="confirm_restart" value="true" required><span><strong>Replace my active Compass</strong><small>The current checkpoint remains stored for recovery but stops driving Matching.</small></span></label>
+      <button class="quiet-button" type="submit">Start from scratch</button>
+    </form>
+  </details>
+{% endblock %}

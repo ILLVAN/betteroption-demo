@@ -1,0 +1,20 @@
+{
+  "id": "00000000-0000-4000-8000-000000000102",
+  "title": "Test Automation Consultant",
+  "company": "QuickStaff Engineering",
+  "location": "Frankfurt am Main",
+  "summary": "Test-automation consulting assignment through a temporary staffing agency.",
+  "source_type": "sample",
+  "source_name": "test_automation_agency.json",
+  "source_text": "QuickStaff Engineering seeks a Test Automation Consultant for a customer assignment in Frankfurt am Main. The position is temporary agency employment with a contract through QuickStaff. Four office days per week are required and one remote day is possible. The role combines automated testing with regular customer consulting. Python and Selenium are required. Occasional shift work may be necessary.",
+  "facts": [
+    {"key": "role.family", "value": "test automation", "kind": "context", "evidence_quote": "Test Automation Consultant"},
+    {"key": "role.responsibility", "value": "consulting", "kind": "requirement", "evidence_quote": "regular customer consulting"},
+    {"key": "employment.arrangement", "value": "temporary agency employment", "kind": "context", "evidence_quote": "temporary agency employment"},
+    {"key": "work_model.remote", "value": "limited hybrid", "kind": "offer", "evidence_quote": "one remote day is possible"},
+    {"key": "work_model.office_days", "value": "4 days per week", "kind": "requirement", "evidence_quote": "Four office days per week"},
+    {"key": "skill.name", "value": "Python", "kind": "requirement", "evidence_quote": "Python"},
+    {"key": "skill.name", "value": "Selenium", "kind": "requirement", "evidence_quote": "Selenium"},
+    {"key": "work_model.shift_work", "value": "shift work", "kind": "requirement", "evidence_quote": "shift work may be necessary"}
+  ]
+}

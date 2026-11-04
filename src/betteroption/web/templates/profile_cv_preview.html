@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Review CV text · WorkLifeBalance{% endblock %}
+{% block content %}
+  <header class="page-heading legal-heading">
+    <p class="eyebrow">Local CV preview</p>
+    <h1>Review the exact text you choose to share.</h1>
+    <p>The original file is no longer held by this request. WorkLifeBalance has not stored it or shared it with an external service.</p>
+  </header>
+
+  {% if preview_changed %}
+    <div class="flash notice" role="status">Additional identifiers were removed after your edit. Review the changed preview and confirm again; nothing has been sent yet.</div>
+  {% endif %}
+
+  <section class="panel legal-document">
+    <h2>Local minimisation result</h2>
+    {% if redactions %}
+      <p>Removed locally: {{ redactions|join(", ") }}.</p>
+    {% else %}
+      <p>No common direct identifiers were detected automatically. This does not prove the text is anonymous.</p>
+    {% endif %}
+    <p>Delete personal/contact text and retain only relevant experience, education, skills, tools, responsibilities and work results. The local scanner can miss information or flag it incorrectly.</p>
+  </section>
+
+  <form class="panel stacked-form" method="post" action="{{ url_for('profile_cv_confirm', workspace_id=workspace.id) }}" data-busy-message="Sending only your reviewed text and preparing editable proposals…">
+    <label for="selected-text">
+      <strong>Text selected for structured review</strong>
+      <textarea id="selected-text" name="selected_text" rows="22" maxlength="100000" required data-autogrow>{{ selected_text }}</textarea>
+      <span class="form-help">Only this displayed text—not the original file—can leave WorkLifeBalance. Do not include a name, contact detail, exact address, special-category or criminal-offence information.</span>
+    </label>
+    <details class="compact-page-help">
+      <summary>Where this text goes</summary>
+      <div><p>If you confirm below, WorkLifeBalance sends this displayed text once to the configured OpenAI API so it can propose editable experience and skill statements. WorkLifeBalance does not retain this transient selected text. OpenAI's default abuse-monitoring retention can be up to 30 days.</p></div>
+    </details>
+    <label class="switch-row">
+      <input type="checkbox" name="confirm_no_sensitive_data" value="true" required>
+      <span><strong>I reviewed this exact text and removed prohibited sensitive data</strong><small>Apparent sensitive content will also be screened again locally before any provider call.</small></span>
+    </label>
+    <label class="switch-row">
+      <input type="checkbox" name="cv_ai_consent" value="true" required>
+      <span><strong>I ask WorkLifeBalance to process this displayed text once</strong><small>This optional action is separate from the Privacy Notice acknowledgement. I have reviewed “Where this text goes” above; the result becomes editable proposals.</small></span>
+    </label>
+    <p class="form-help"><a class="text-link" href="{{ url_for('ai_notice') }}" target="_blank" rel="noopener">AI notice</a> · <a class="text-link" href="{{ url_for('privacy_notice') }}" target="_blank" rel="noopener">Privacy Notice</a></p>
+    <div class="inline-actions">
+      <a class="secondary-button" href="{{ url_for('profile_conversation', workspace_id=workspace.id) }}">Cancel without sending</a>
+      <button class="primary-button" type="submit">Send this text once <span aria-hidden="true">→</span></button>
+    </div>
+  </form>
+{% endblock %}

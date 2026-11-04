@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Cookies and storage · WorkLifeBalance{% endblock %}
+{% block content %}
+  <header class="page-heading legal-heading">
+    <p class="eyebrow">Cookies and device storage</p>
+    <h1>Essential storage only in the alpha.</h1>
+    <p>No analytics, advertising, cross-site profiling or marketing cookies are enabled in the reviewed alpha boundary.</p>
+  </header>
+
+  <article class="panel legal-document">
+    <section><h2>Authentication cookie</h2><p>An essential first-party session cookie keeps an invited user signed in. It is configured HttpOnly, Secure in staging, and SameSite. The server stores a hashed session record. Maximum session life is 30 days; logout, password reset and account disablement revoke it.</p></section>
+    <section><h2>Browser-only interface state</h2><p>The interface may use short-lived first-party browser state for presentation or to transfer a one-time token from the URL fragment into a form. Invitation and recovery secrets use URL fragments so they are not sent in ordinary HTTP request paths; the token is then submitted once and invalidated.</p></section>
+    <section><h2>Security and provider connection data</h2><p>Cloudflare and Netcup process technical connection data needed to deliver and protect the site under their separately reviewed settings and retention periods. The reviewed private-alpha stack disables both Caddy and Uvicorn HTTP access logs. Caddy can still emit operational runtime/error metadata, but its logger removes the complete HTTP request object, including the URI and query string, before encoding. Every container log is size-limited to five 10 MB files; this is size-based rotation, not a fixed time-based retention promise. Content-free application security events are limited to 90 days. Provider-specific retention must be verified before launch.</p></section>
+    <section><h2>No consent banner for essential-only operation</h2><p>The alpha does not use a cookie-consent banner because it does not set optional analytics or marketing storage. If optional storage is added, it must remain disabled until separately reviewed and, where required, preceded by informed consent that can be withdrawn as easily as it was given.</p></section>
+    <section><h2>Your control</h2><p>You can remove first-party cookies through browser settings, but doing so signs you out. A compact account, persona and current-Compass download and complete account deletion are available under Account. Broader privacy-rights requests remain available through the contact in the Privacy Notice.</p></section>
+  </article>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Create account · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="auth-shell">
+    <article class="panel auth-card">
+      <p class="eyebrow">Private account</p>
+      <h1>Make this workspace yours.</h1>
+      <p class="hero-copy">Your Compass, CV evidence, decisions, and matches stay behind your account boundary.</p>
+      <form class="stacked-form" method="post" action="{{ url_for('register') }}">
+        <input type="hidden" name="next_path" value="{{ next_path }}">
+        <label>
+          Username
+          <input name="display_name" autocomplete="username" required maxlength="32">
+          <span class="form-help">Shown in the interface. It must be unique and at most 32 characters.</span>
+        </label>
+        <label>
+          Email address
+          <input name="email" type="email" autocomplete="email" required maxlength="320">
+        </label>
+        <label>
+          Password
+          <input name="password" type="password" autocomplete="new-password" required minlength="10" maxlength="1024">
+          <span class="form-help">Use at least 10 characters.</span>
+        </label>
+        <label class="legal-check">
+          <input name="accept_terms" type="checkbox" value="yes" required>
+          <span>I accept the <a class="text-link" href="{{ url_for('terms') }}" target="_blank" rel="noopener">Terms ({{ terms_version }})</a>.</span>
+        </label>
+        <label class="legal-check">
+          <input name="acknowledge_privacy" type="checkbox" value="yes" required>
+          <span>I have read the <a class="text-link" href="{{ url_for('privacy_notice') }}" target="_blank" rel="noopener">Privacy Notice ({{ privacy_version }})</a>. This acknowledgement is not blanket consent to unrelated processing.</span>
+        </label>
+        <label class="legal-check">
+          <input name="confirm_adult" type="checkbox" value="yes" required>
+          <span>I confirm that I am at least 18 years old.</span>
+        </label>
+        <button class="primary-button" type="submit">Create private account</button>
+      </form>
+      <p class="auth-switch">Already registered? <a class="text-link" href="{{ url_for('login') }}?next={{ next_path|urlencode }}">Sign in</a>.</p>
+    </article>
+  </section>
+{% endblock %}

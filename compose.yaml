@@ -1,0 +1,227 @@
+name: betteroption-staging
+
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *default-logging
+    networks:
+      - private
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    entrypoint: ["python"]
+    command: ["-m", "betteroption.deployment", "migrate"]
+    env_file:
+      - ./deploy/.env.staging
+    environment:
+      BETTEROPTION_DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+    networks:
+      - private
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./deploy/.env.staging
+    environment:
+      BETTEROPTION_DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      BETTEROPTION_WEB_HOST: 0.0.0.0
+      BETTEROPTION_WEB_PORT: 8000
+      BETTEROPTION_BACKGROUND_WORKER_ENABLED: "false"
+      BETTEROPTION_BACKGROUND_WORKER_EXTERNAL: "true"
+      BETTEROPTION_RUN_STARTUP_MIGRATIONS: "false"
+    volumes:
+      - app_data:/app/local-data
+    expose:
+      - "8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging: *default-logging
+    networks:
+      - private
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # worker.py may spend up to ten seconds cooperatively releasing/requeueing
+    # an active lease. Leave a second full window before Docker escalates from
+    # SIGTERM to SIGKILL so ordinary deploys do not manufacture stale work.
+    stop_grace_period: 20s
+    entrypoint: ["python"]
+    command: ["-m", "betteroption.worker"]
+    env_file:
+      - ./deploy/.env.staging
+    environment:
+      BETTEROPTION_DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      BETTEROPTION_BACKGROUND_WORKER_ENABLED: "false"
+      BETTEROPTION_BACKGROUND_WORKER_EXTERNAL: "true"
+    volumes:
+      - app_data:/app/local-data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    logging: *default-logging
+    networks:
+      - private
+
+  retention:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    entrypoint: ["python"]
+    command: ["-m", "betteroption.retention", "loop"]
+    env_file:
+      - ./deploy/.env.staging
+    environment:
+      BETTEROPTION_DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    logging: *default-logging
+    networks:
+      - private
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    expose:
+      - "80"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    logging: *default-logging
+    networks:
+      - private
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.7.3
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN_FILE: /run/secrets/cloudflared_token
+      TUNNEL_METRICS: 0.0.0.0:2000
+    expose:
+      - "2000"
+    secrets:
+      - cloudflared_token
+    depends_on:
+      caddy:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    logging: *default-logging
+    networks:
+      - private
+
+  backup:
+    image: postgres:17-alpine
+    profiles: ["tools"]
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./deploy/backups:/backups
+      - ./deploy/scripts:/scripts:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+    networks:
+      - private
+
+  backup-scheduler:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./deploy/backups:/backups
+      - ./deploy/scripts:/scripts:ro
+    command: ["sh", "/scripts/backup_loop.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+    networks:
+      - private
+
+volumes:
+  postgres_data:
+  app_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  private:
+    internal: false
+
+secrets:
+  cloudflared_token:
+    file: ./deploy/cloudflared-token

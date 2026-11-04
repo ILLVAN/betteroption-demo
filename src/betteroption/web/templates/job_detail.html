@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.card.title }} · WorkLifeBalance{% endblock %}
+{% block content %}
+  {% set item = matched.item if matched else none %}
+  {% macro influence(key, context_only=false) %}
+    {% set section = score_sections.get(key) %}
+    {% if section %}<span class="score-influence" title="{{ section.mechanics }}">{% if context_only %}Affects {{ section.label }} · {% endif %}{{ '%+d'|format(section.applied_points) }} points in this score · up to +{{ section.positive_capacity_points }}{% if section.can_block %} · can block{% endif %}</span>{% endif %}
+  {% endmacro %}
+  {% macro application_guidance_summary(guidance, original=false) %}
+    <dl class="source-list application-guidance-summary">
+      <div data-guidance-field="contact_name"><dt>Contact name</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.contact_name.value if guidance.contact_name else 'Unknown' }}</dd></div>
+      <div data-guidance-field="contact_role"><dt>Contact role</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.contact_role.value if guidance.contact_role else 'Unknown' }}</dd></div>
+      <div data-guidance-field="contact_email"><dt>Email</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.contact_email.value if guidance.contact_email else 'Unknown' }}</dd></div>
+      <div data-guidance-field="contact_phone"><dt>Phone</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.contact_phone.value if guidance.contact_phone else 'Unknown' }}</dd></div>
+      <div data-guidance-field="postal_address"><dt>Published address</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.postal_address.value if guidance.postal_address else 'Unknown' }}</dd></div>
+      <div data-guidance-field="application_channel"><dt>Channel</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.application_channel.value|replace('_', ' ')|title if guidance.application_channel else 'Unknown' }}</dd></div>
+      <div data-guidance-field="application_url"><dt>Application URL</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.application_url.value if guidance.application_url else 'Unknown' }}</dd></div>
+      <div data-guidance-field="requested_documents"><dt>Documents</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.requested_documents|map(attribute='value')|join(', ') if guidance.requested_documents else 'Unknown' }}</dd></div>
+      <div data-guidance-field="max_file_size"><dt>Maximum file size</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.max_file_size.value if guidance.max_file_size else 'Unknown' }}</dd></div>
+      <div data-guidance-field="max_pages"><dt>Maximum pages</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.max_pages.value if guidance.max_pages else 'Unknown' }}</dd></div>
+      <div data-guidance-field="application_deadline"><dt>Deadline</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.application_deadline.value if guidance.application_deadline else 'Unknown' }}</dd></div>
+      <div data-guidance-field="instructions"><dt>Instructions</dt><dd{% if original %} class="evidence-original-value"{% endif %}>{{ guidance.instructions|map(attribute='value')|join('; ') if guidance.instructions else 'Unknown' }}</dd></div>
+    </dl>
+  {% endmacro %}
+  <nav class="detail-navigation" aria-label="Opportunity navigation">
+    <a class="back-link" href="{{ url_for('matches') if matched else url_for('jobs') }}">← Back to {{ 'Matching' if matched else 'Archive' }}</a>
+    {% if detail_navigation is defined and detail_navigation %}
+      <div class="detail-navigation-arrows">
+        {% if detail_navigation.previous_url %}<a class="detail-navigation-button" href="{{ detail_navigation.previous_url }}" aria-label="Previous opportunity">←</a>{% else %}<span class="detail-navigation-button is-disabled" aria-hidden="true">←</span>{% endif %}
+        {% if detail_navigation.position and detail_navigation.total %}<span>{{ detail_navigation.position }} / {{ detail_navigation.total }}</span>{% endif %}
+        {% if detail_navigation.next_url %}<a class="detail-navigation-button" href="{{ detail_navigation.next_url }}" aria-label="Next opportunity">→</a>{% else %}<span class="detail-navigation-button is-disabled" aria-hidden="true">→</span>{% endif %}
+      </div>
+    {% endif %}
+  </nav>
+  <section class="detail-hero"{% if item %} data-match-record-id="{{ detail.record.id }}" data-match-disposition="{{ item.stored.result.disposition.value }}"{% endif %}>
+    <div>
+      <div class="card-topline">
+        <span class="availability {{ detail.card.availability.value }}"><span aria-hidden="true"></span>{{ detail.card.availability_label }}</span>
+        {% if item %}<span class="fit-label {{ item.stored.result.disposition.value }}" data-match-disposition-label>{{ item.disposition_label }}</span>{% endif %}
+      </div>
+      <p class="company">{{ display_employer_name }}</p>
+      <h1>{{ detail.card.title }}</h1>
+      <p class="location">{{ detail.card.display_location if detail.card.display_location is defined else detail.card.location }}</p>
+    </div>
+    {% if detail.card.source_is_manual %}<div><span class="gentle-note">Manual input · its saved text is never fetched or reverified.</span>{% if detail.job and detail.job.source_url %}<a class="secondary-button" href="{{ detail.job.source_url }}" target="_blank" rel="noopener noreferrer">Open original link (unverified) <span aria-hidden="true">↗</span></a>{% endif %}</div>{% elif item and not item.source_is_current %}<span class="gentle-note">The source has changed or closed since this result was created. Re-run Matching before opening it as verified evidence.</span>{% elif detail.card.source_is_verified %}<a class="primary-button" href="{{ detail.card.source_url }}" target="_blank" rel="noopener noreferrer">Open verified job page <span aria-hidden="true">↗</span></a>{% else %}<form method="post" action="{{ url_for('job_refresh', record_id=detail.record.id) }}"><button class="primary-button" type="submit">Check this link again <span aria-hidden="true">↻</span></button></form>{% endif %}
+  </section>
+
+  {% if source_guidance %}
+    <section class="panel canonical-source-panel">
+      <p class="eyebrow">Canonical source needed</p><h2>Use the employer’s own job page</h2>
+      <p class="action-copy">{{ source_guidance }}</p>
+      <form class="stacked-form" method="post" action="{{ url_for('job_canonical_source', record_id=detail.record.id) }}">
+        <label>Employer careers URL<input type="url" name="url" required maxlength="2000" placeholder="https://employer.example/careers/job-123"></label>
+        {% if not detail.job %}<label class="switch-row"><input type="checkbox" name="replace_restricted_source" value="true"><span><strong>Replace this unreadable source after verification</strong><small>The original remains unless the new URL produces a real job.</small></span></label>{% endif %}
+        <button class="confirm-button" type="submit">Verify canonical source</button>
+      </form>
+    </section>
+  {% endif %}
+
+  <div class="detail-grid result-detail-grid">
+    <section class="panel evidence-workbench" aria-labelledby="evidence-heading"{% if item %} data-match-record-id="{{ detail.record.id }}" data-match-disposition="{{ item.stored.result.disposition.value }}"{% endif %}>
+      <p class="eyebrow">{{ 'Traceable compatibility' if item else 'At a glance' }}</p>
+      <h2 id="evidence-heading">{{ 'Why it landed here' if item else 'What this opportunity is about' }}</h2>
+      <p class="lead-copy">{{ item.stored.job.summary if item else detail.card.summary }}</p>
+
+      {% if item %}
+        <form id="evidence-bulk-form" method="post" action="{{ url_for('job_evidence_bulk', record_id=detail.record.id) }}" data-evidence-bulk-form data-preserve-scroll data-busy-message="Saving your private evidence corrections…"></form>
+        <section class="panel primary-action-shell evidence-action-shell" id="evidence-rematch" aria-labelledby="evidence-rematch-heading">
+          <div class="primary-action-tile evidence-rematch-prompt">
+            <div>
+              <p class="eyebrow">{{ 'Correction ready to score' if evidence_rematch_pending else 'Job actions' }}</p>
+              <h3 id="evidence-rematch-heading">Refresh its evidence or prepare your application.</h3>
+              <p>{{ 'Your private change is saved. Update the score below, or run a full evidence refresh when needed.' if evidence_rematch_pending else 'A full rematch is available after evidence or Compass changes.' }}</p>
+            </div>
+            <div class="inline-actions">
+              {% if matched.groups.profile_is_current and matched.groups.algorithm_is_current %}
+                <form method="post" action="{{ url_for('job_evidence_rematch', record_id=detail.record.id) }}" data-busy-message="Starting a full background Match for this job…">
+                  <button class="primary-button" type="submit"{% if not evidence_rematch_pending %} disabled aria-disabled="true" title="Change the Compass or a private value first"{% endif %}>Fully rematch this job <span aria-hidden="true">→</span></button>
+                </form>
+              {% else %}
+                <a class="secondary-button" href="{{ url_for('matches') }}">Run complete Match first</a>
+              {% endif %}
+              {% if item.stored.result.disposition.value != 'blocked' and item.source_is_current %}
+                <a class="secondary-button" href="{{ url_for('apply') }}?job={{ detail.record.id }}{% if application_drafts %}&draft={{ application_drafts[0].id }}#draft-{{ application_drafts[0].id }}{% else %}&create=true{% endif %}">{{ 'Open cover letters' if application_drafts else 'Create cover letter' }}</a>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+        <div class="metric-row compact"><div><strong data-match-score>{{ item.stored.result.score }}</strong><span>Compatibility</span></div><div><strong>{{ item.stored.result.hard_evidence_coverage }}%</strong><span>Boundary evidence</span></div><div><strong>{{ item.stored.result.matched_required_skills|length }}</strong><span>Skills evidenced</span></div></div>
+        {% if item.stored.result.score_mechanics %}
+          {% set mechanics = item.stored.result.score_mechanics %}
+          <details class="score-mechanics"><summary>How this compatibility score is calculated</summary><div class="score-mechanics-grid">
+            <p><strong>Starting point: {{ mechanics.base_points }}</strong><span>Compass fit and required skills bring it to {{ mechanics.pre_confidence_points }} before evidence coverage is considered.</span></p>
+            <p><strong>Evidence coverage</strong><span>{{ '%+d'|format(mechanics.evidence_confidence_adjustment) }} points at the current {{ '%.0f'|format(mechanics.evidence_confidence_multiplier * 100) }}% confidence factor.</span></p>
+            {% for section in mechanics.sections %}<p><strong>{{ section.label }}</strong><span>{{ '%+d'|format(section.applied_points) }} points in this score · can add up to +{{ section.positive_capacity_points }}{% if section.can_block %} · can block{% endif %}</span><small>{{ section.mechanics }}</small></p>{% endfor %}
+          </div><small>The point rules are fixed and published. They are not learned probabilities.</small></details>
+        {% endif %}
+
+        <section class="job-facts-workbench" aria-labelledby="job-facts-heading">
+          <div class="facts-workbench-heading"><p class="eyebrow">Job facts</p><h3 id="job-facts-heading">Keep the role-specific evidence together.</h3></div>
+
+        {% if item.stored.result.employer_assessment %}
+          {% set employer = item.stored.result.employer_assessment %}
+          {% set effective_employer = item.stored.result.effective_employer_assessment or employer %}
+          {% set saved = context_overrides.get(context_keys.employer_relationship) %}
+          {% set employer_value = saved.text_value if saved else effective_employer.kind.value %}
+          <h3 class="subheading">Job relationship {{ influence('compass', true) }}</h3>
+          <article class="evidence-comparison context-evidence employer-relationship-comparison supporting{% if saved %} has-user-override{% endif %}">
+            <div class="evidence-auto"><span class="evidence-column-label">Automatic context</span><strong{% if saved %} class="evidence-original-value"{% endif %}>{{ employer.kind.value|replace('_', ' ')|title }}</strong><small>{{ employer.confidence.value|title }} confidence</small><details class="evidence-details"><summary>Explanation, evidence and sources</summary><div class="evidence-details-body"><p>{{ employer.explanation }}</p>{% for quote in employer.evidence_quotes %}<blockquote>“{{ quote }}”</blockquote>{% endfor %}{% for url in employer.evidence_urls %}<a class="source-url" href="{{ url }}" target="_blank" rel="noopener noreferrer">Employer evidence source ↗</a>{% endfor %}</div></details></div>
+            <div class="evidence-user" data-evidence-edit><span class="evidence-column-label">Your value{% if saved %}<b>Saved correction</b>{% endif %}</span><input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="context"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ context_keys.employer_relationship }}"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ employer_value }}"><label>Relationship<select class="{{ 'evidence-suggestion-input' if employer_value == 'unknown' else '' }}" form="evidence-bulk-form" name="evidence_value" data-evidence-input><option value="direct_employer"{% if employer_value == 'direct_employer' %} selected{% endif %}>Direct employer</option><option value="staffing_agency"{% if employer_value == 'staffing_agency' %} selected{% endif %}>Staffing agency / temporary employment</option><option value="recruitment_agency"{% if employer_value == 'recruitment_agency' %} selected{% endif %}>Recruitment agency</option><option value="freelance"{% if employer_value == 'freelance' %} selected{% endif %}>Freelance engagement</option><option value="contractor"{% if employer_value == 'contractor' %} selected{% endif %}>Contractor engagement</option><option value="intermediary"{% if employer_value == 'intermediary' %} selected{% endif %}>Intermediary</option><option value="platform"{% if employer_value == 'platform' %} selected{% endif %}>Talent or freelance platform</option><option value="consultancy"{% if employer_value == 'consultancy' %} selected{% endif %}>Consultancy</option><option value="other"{% if employer_value == 'other' %} selected{% endif %}>Other relationship</option><option value="unknown"{% if employer_value == 'unknown' %} selected{% endif %}>Choose after checking the contract model</option></select></label>{% if employer_value == 'unknown' and not saved %}<small class="evidence-suggestion-copy">No relationship was proven automatically. Choose the closest researched arrangement when known.</small>{% endif %}{% if saved %}<form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}"><input type="hidden" name="kind" value="context"><input type="hidden" name="target_key" value="{{ context_keys.employer_relationship }}"><button type="submit">Restore automatic</button></form>{% endif %}</div>
+          </article>
+        {% endif %}
+
+        {% set employer_facts_markup %}
+        <section class="employer-facts-workbench" aria-labelledby="employer-facts-heading">
+          <div class="employer-facts-heading"><p class="eyebrow">Employer facts</p><h3 id="employer-facts-heading">Keep company context together.</h3></div>
+          {% set saved_company_name = context_overrides.get(context_keys.company_name) %}
+          <h3 class="subheading">Employer identity</h3>
+          <article class="evidence-comparison context-evidence {{ 'supporting' if employer_identity_resolved else 'unknown' }}{% if saved_company_name %} has-user-override{% endif %}">
+            <div class="evidence-auto"><span class="evidence-column-label">Source company name</span><strong{% if saved_company_name %} class="evidence-original-value"{% endif %}>{{ detail.card.company }}</strong><small>{{ 'Resolved identity; ratings can follow this employer across its jobs.' if employer_identity_resolved else 'Generic or missing company names are never merged or rated.' }}</small></div>
+            <div class="evidence-user" data-evidence-edit><span class="evidence-column-label">Your value{% if saved_company_name %}<b>Saved correction</b>{% endif %}</span><input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="context"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ context_keys.company_name }}"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ effective_employer_name or '' }}"><label>Employer name<input form="evidence-bulk-form" name="evidence_value" maxlength="300" value="{{ effective_employer_name or '' }}" data-evidence-input></label>{% if saved_company_name %}<form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}"><input type="hidden" name="kind" value="context"><input type="hidden" name="target_key" value="{{ context_keys.company_name }}"><button type="submit">Restore source name</button></form>{% endif %}</div>
+          </article>
+
+        {% set intelligence = item.stored.result.company_intelligence %}
+        {% if intelligence %}
+          {% set effective_intelligence = item.stored.result.effective_company_intelligence or intelligence %}
+          {% set saved_company_revenue = context_overrides.get(context_keys.company_revenue) %}
+          {% set saved_company_summary = context_overrides.get(context_keys.company_summary) %}
+          {% set saved_company_categories = context_overrides.get(context_keys.company_categories) %}
+          <h3 class="subheading">Company product profile {{ influence('compass', true) }}</h3>
+          <article class="evidence-comparison company-intelligence supporting{% if saved_company_revenue or saved_company_summary or saved_company_categories %} has-user-override{% endif %}">
+            <div class="evidence-auto"><span class="evidence-column-label">Automatic company context</span><strong{% if saved_company_revenue %} class="evidence-original-value"{% endif %}>{{ intelligence.product.revenue_model|capitalize }}</strong><small>{{ intelligence.product.confidence.value|title }} confidence</small><p{% if saved_company_summary %} class="evidence-original-value"{% endif %}>{{ intelligence.product.summary }}</p>{% if intelligence.product.categories %}<div class="job-tags{% if saved_company_categories %} evidence-original-value{% endif %}">{% for category in intelligence.product.categories %}<span>{{ category|title }}</span>{% endfor %}</div>{% endif %}<details class="evidence-details"><summary>Evidence and sources</summary><div class="evidence-details-body">{% for quote in intelligence.product.evidence_quotes %}<blockquote>“{{ quote }}”</blockquote>{% endfor %}{% for url in intelligence.product.evidence_urls %}<a class="source-url" href="{{ url }}" target="_blank" rel="noopener noreferrer">Company-product evidence ↗</a>{% endfor %}</div></details></div>
+            <div class="evidence-user"><span class="evidence-column-label">Your values</span>
+              {% set company_suggestions = {context_keys.company_revenue: 'Research prompt: what does the company sell, deliver, license, or broker?', context_keys.company_summary: 'Add a concise researched description of the employer’s products or services and customers.', context_keys.company_categories: 'Add researched categories, separated by commas.'} %}
+              {% set company_has_no_result = intelligence.product.confidence.value == 'low' and not intelligence.product.evidence_urls %}
+              {% for key, label, value in [(context_keys.company_revenue, 'Revenue model', effective_intelligence.product.revenue_model), (context_keys.company_summary, 'Product summary', effective_intelligence.product.summary), (context_keys.company_categories, 'Categories (comma separated)', effective_intelligence.product.categories|join(', '))] %}{% set saved = context_overrides.get(key) %}{% set suggested = company_has_no_result and not saved %}{% set display_value = saved.text_value if saved else company_suggestions.get(key) if suggested else value %}<div class="{{ 'evidence-suggestion-edit' if suggested else '' }}" data-evidence-edit><input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="context"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ key }}"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ display_value }}"><label>{{ label }}<input class="{{ 'evidence-suggestion-input' if suggested else '' }}" form="evidence-bulk-form" name="evidence_value" maxlength="2000" value="{{ display_value }}" data-evidence-input></label>{% if saved %}<form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}"><input type="hidden" name="kind" value="context"><input type="hidden" name="target_key" value="{{ key }}"><button type="submit">Restore {{ label|lower }}</button></form>{% endif %}</div>{% endfor %}
+              {% if company_has_no_result %}<details class="evidence-details evidence-suggestion-help"><summary>About these research prompts</summary><p>They are editable starting points, not automatic evidence.</p></details>{% endif %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% set saved_employer_types = context_overrides.get(context_keys.employer_types) %}
+        {% set employer_types_value = saved_employer_types.text_value if saved_employer_types else selected_employer_types|sort|join(',') %}
+        <h3 class="subheading">Employer type</h3>
+        <article class="evidence-comparison context-evidence employer-type-comparison supporting{% if saved_employer_types %} has-user-override{% endif %}" data-employer-types-editor>
+          <div class="evidence-auto">
+            <span class="evidence-column-label">Automatic employer types</span>
+            <div class="employer-type-options employer-type-original-options" aria-label="Automatically inferred employer types">
+              {% for value, label in employer_type_options %}{% if value in automatic_employer_types %}<span class="employer-type-readonly{% if saved_employer_types %} evidence-original-value{% endif %}">{{ label }}</span>{% endif %}{% endfor %}
+              {% if not automatic_employer_types %}<span class="employer-type-readonly{% if saved_employer_types %} evidence-original-value{% endif %}">No type inferred</span>{% endif %}
+            </div>
+            <small>Derived from the saved employer and company evidence. Source labels and provenance remain unchanged.</small>
+          </div>
+          <div class="evidence-user" data-evidence-edit>
+            <span class="evidence-column-label">Your value{% if saved_employer_types %}<b>Saved correction</b>{% endif %}</span>
+            <input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="context">
+            <input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ context_keys.employer_types }}">
+            <input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ employer_types_value }}">
+            <input form="evidence-bulk-form" type="hidden" name="evidence_value" value="{{ employer_types_value }}" data-evidence-input data-employer-types-value>
+            <div class="employer-type-options" role="group" aria-label="Your employer types">
+              {% for value, label in employer_type_options %}<label><input type="checkbox" value="{{ value }}"{% if value in selected_employer_types %} checked{% endif %} data-employer-type-checkbox><span>{{ label }}</span></label>{% endfor %}
+            </div>
+            {% if saved_employer_types %}<form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}"><input type="hidden" name="kind" value="context"><input type="hidden" name="target_key" value="{{ context_keys.employer_types }}"><button type="submit">Restore automatic types</button></form>{% endif %}
+          </div>
+        </article>
+
+        <h3 class="subheading">Employer reputation check {{ influence('employer_reputation') }}</h3>
+        <article class="company-intelligence evidence-summary-card employer-rating-card" id="employer-reputation">
+          <div>
+            <strong>{% if intelligence %}Current review profiles{% else %}Your assessment of {{ display_employer_name }}{% endif %}</strong><span>{% if intelligence %}Public links available{% else %}No public signal saved{% endif %}</span>
+          </div>
+          {% if employer_identity_resolved %}<form class="employer-star-rating" id="employer-reputation-rating" method="post" action="{{ url_for('job_employer_rating', record_id=detail.record.id) }}" aria-label="Your private employer rating">
+            <span class="evidence-column-label">Your private rating</span>
+            <div class="star-rating-buttons" role="group" aria-label="Rate {{ effective_employer_name }} from zero to five stars">
+              <button class="star-rating-button{% if employer_rating and employer_rating.stars == 0 %} is-active{% endif %}" type="submit" name="stars" value="0" aria-label="0 of 5 stars; strongest compatibility reduction" title="0 stars lowers compatibility without creating a boundary"><span aria-hidden="true">⊘</span></button>
+              {% for star in range(1, 6) %}
+                <button class="star-rating-button{% if employer_rating and star <= employer_rating.stars %} is-active{% endif %}" type="submit" name="stars" value="{{ star }}" aria-label="{{ star }} of 5 stars" title="{{ star }} of 5 stars"><span aria-hidden="true">★</span></button>
+              {% endfor %}
+            </div>
+            <small>{{ employer_rating.stars ~ ' of 5 stars · private to this persona' if employer_rating else 'Not rated · private to this persona' }}</small>
+          </form>
+          {% if employer_rating %}<form method="post" action="{{ url_for('job_employer_rating_clear', record_id=detail.record.id) }}"><button class="star-rating-clear" type="submit">Clear to unrated</button></form>{% endif %}
+          {% else %}<p class="compact-evidence-note">Add a unique employer name above before rating. Generic names such as “Unknown” are deliberately kept separate.</p>{% endif %}
+          {% if intelligence %}
+            {% set saved_reputation = context_overrides.get(context_keys.reputation_summary) %}
+            {% set shared_reputation = shared_employer_context if saved_reputation and shared_employer_context and saved_reputation.job_record_id == shared_employer_context.job_record_id else none %}
+            {% set reputation_suggested = not saved_reputation and not intelligence.reputation.signals %}
+            {% set reputation_value = saved_reputation.text_value if saved_reputation else 'Add your researched impression: review themes, recent signals, and role-specific caveats.' if reputation_suggested else (item.stored.result.effective_company_intelligence or intelligence).reputation.summary %}
+            {% if saved_reputation %}
+              <article class="evidence-comparison reputation-context-comparison supporting has-user-override">
+                <div class="evidence-auto">
+                  <span class="evidence-column-label">Automatic reputation context</span>
+                  <p class="evidence-original-value">{{ intelligence.reputation.summary }}</p>
+                  <small>Original provider-backed summary. Review links, signals, caveats and provenance remain active below.</small>
+                </div>
+                <div class="evidence-user" data-evidence-edit>
+                  <span class="evidence-column-label">{{ 'Shared private value' if shared_reputation else 'Your value' }}<b>{{ 'Shared across employer jobs' if shared_reputation else 'Saved correction' }}</b></span>
+                  <input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="context">
+                  <input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ context_keys.reputation_summary }}">
+                  <input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ reputation_value }}">
+                  <label>Your private employer context<input form="evidence-bulk-form" name="evidence_value" maxlength="2000" value="{{ reputation_value }}" data-evidence-input></label>
+                  {% if shared_reputation %}<small class="shared-employer-context-note">Shared across jobs for {{ effective_employer_name }}. Editing creates a value for this job.</small>{% endif %}
+                  {% if not shared_reputation %}<form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}"><input type="hidden" name="kind" value="context"><input type="hidden" name="target_key" value="{{ context_keys.reputation_summary }}"><button type="submit">Restore automatic context</button></form>{% endif %}
+                </div>
+              </article>
+            {% else %}
+              <div class="{{ 'evidence-suggestion-edit' if reputation_suggested else '' }}" data-evidence-edit>
+                <input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="context">
+                <input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ context_keys.reputation_summary }}">
+                <input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ reputation_value }}">
+                <label>Your private employer context<input class="{{ 'evidence-suggestion-input' if reputation_suggested else '' }}" form="evidence-bulk-form" name="evidence_value" maxlength="2000" value="{{ reputation_value }}" data-evidence-input></label>
+                {% if reputation_suggested %}<details class="evidence-details evidence-suggestion-help"><summary>About this prompt</summary><p>This is your private note, not a provider finding.</p></details>{% endif %}
+              </div>
+            {% endif %}
+            <details class="evidence-details"><summary>Review links, signals and caveats</summary><div class="evidence-details-body">
+              {% if not saved_reputation %}<p>{{ intelligence.reputation.summary }}</p>{% endif %}
+              {% for link in intelligence.reputation.review_links %}<a class="source-url" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }} ↗</a>{% endfor %}
+              {% for signal in intelligence.reputation.signals %}<div class="reputation-signal"><strong>{{ signal.label }}</strong><p>{{ signal.summary }}</p><a class="source-url" href="{{ signal.source_url }}" target="_blank" rel="noopener noreferrer">Independent employer signal ↗</a></div>{% endfor %}
+              <small>{{ intelligence.reputation.caveat }}</small>
+            </div></details>
+          {% else %}
+            <p class="compact-evidence-note">Your rating can still be saved without calling or trusting an external review provider.</p>
+          {% endif %}
+        </article>
+        </section>
+        {% endset %}
+
+        <h3 class="subheading">Your rating of this job {{ influence('job_rating') }}</h3>
+        <article class="job-rating-detail-card evidence-summary-card"><p class="compact-evidence-note">Separate from the employer rating and from Compass boundaries. Unrated is neutral; an explicit 0 is the strongest compatibility reduction.</p>{% set rating_record_id = detail.record.id %}{% set rating_job_title = detail.card.title %}{% include "job_rating_control.html" %}</article>
+
+        {% set salary = item.stored.result.salary_estimate %}
+        {% set automatic_salary = item.stored.result.automatic_salary_estimate %}
+        {% set saved_salary = context_overrides.get(context_keys.salary_range) %}
+        {% if not automatic_salary and salary and not saved_salary %}{% set automatic_salary = salary %}{% endif %}
+        {% if saved_salary %}{% set salary_range = saved_salary.text_value %}{% elif salary %}{% set salary_range = salary.annual_min_eur|string ~ ':' ~ salary.annual_max_eur|string %}{% else %}{% set salary_range = ':' %}{% endif %}
+        {% set salary_parts = salary_range.split(':') %}
+        <h3 class="subheading">Expected salary orientation {{ influence('compass', true) }}</h3>
+        <article class="salary-evidence evidence-comparison {{ 'has-user-override' if saved_salary else 'unknown' if not automatic_salary else '' }}">
+          <div class="evidence-auto">
+            <span class="evidence-column-label">Automatic orientation</span>
+            {% if automatic_salary %}
+              <strong{% if saved_salary %} class="evidence-original-value"{% endif %}>€{{ "{:,}".format(automatic_salary.annual_min_eur) }}–€{{ "{:,}".format(automatic_salary.annual_max_eur) }}</strong><span>gross/year · {{ automatic_salary.confidence.value|replace('_', ' ') }} confidence</span>
+              <p class="compact-evidence-note"><strong>Not stated by the employer.</strong> Market orientation, not advertised pay.</p>
+              <details class="evidence-details"><summary>Assumptions, confidence and sources</summary><div class="evidence-details-body">
+                <p>{{ automatic_salary.assumption }}</p>
+                {% if automatic_salary.evidence %}
+                  <div class="salary-source-list" aria-label="Salary benchmark sources">
+                    {% for evidence in automatic_salary.evidence %}
+                      <section>
+                        <p><strong>{{ evidence.source_label }}</strong><span>{{ evidence.country_code }} · {{ evidence.source_currency }} {{ "{:,.0f}".format(evidence.source_min_amount) }}–{{ "{:,.0f}".format(evidence.source_max_amount) }} / {{ evidence.source_period.value }}</span></p>
+                        <a class="source-url" href="{{ evidence.source_url }}" target="_blank" rel="noopener noreferrer">Open wage evidence ↗</a>
+                        {% if evidence.exchange_source_url %}<a class="source-url" href="{{ evidence.exchange_source_url }}" target="_blank" rel="noopener noreferrer">ECB conversion evidence · {{ evidence.exchange_rate_date }} ↗</a>{% endif %}
+                      </section>
+                    {% endfor %}
+                  </div>
+                {% elif automatic_salary.source_url %}
+                  <a class="source-url" href="{{ automatic_salary.source_url }}" target="_blank" rel="noopener noreferrer">{{ automatic_salary.source_label }} ↗</a>
+                {% else %}
+                  <p class="gentle-note"><strong>Unsourced AI orientation.</strong> No attributable benchmark was found. This broad range can contribute only very-low-confidence supporting context; it is never treated as employer pay and cannot establish a salary violation.</p>
+                {% endif %}
+              </div></details>
+            {% else %}
+              <strong{% if saved_salary %} class="evidence-original-value"{% endif %}>Unavailable</strong><span>gross/year · unknown confidence</span>
+              <p class="compact-evidence-note"><strong>No attributable salary orientation is available.</strong> WorkLifeBalance does not invent a range when the advertisement and configured research sources provide none.</p>
+              <details class="evidence-details"><summary>How unknown salary is handled</summary><div class="evidence-details-body"><p>Unknown pay is not evidence that a salary preference is satisfied or violated. Add a private researched range if you find a reliable current source; it remains separate from the public advertisement.</p></div></details>
+            {% endif %}
+          </div>
+          <div class="evidence-user" data-evidence-edit data-salary-range-editor>
+            {% set salary_min_value = salary_parts[0]|trim %}{% set salary_max_value = salary_parts[1]|trim if salary_parts|length > 1 else salary_parts[0]|trim %}
+            <span class="evidence-column-label">Your researched range{% if saved_salary %}<b>Saved correction</b>{% endif %}</span><input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="context"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ context_keys.salary_range }}"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ salary_range }}"><input form="evidence-bulk-form" type="hidden" name="evidence_value" value="{{ salary_range }}" data-evidence-input data-salary-range-output><div class="salary-range-fields"><label><span>Minimum</span><select data-salary-range-min><option value="">Not set</option>{% if salary_min_value and ((salary_min_value|int) > 300000 or (salary_min_value|int) % 1000 != 0) %}<option value="{{ salary_min_value }}" selected>{{ salary_min_value }}</option>{% endif %}{% for amount in range(0, 300001, 1000) %}<option value="{{ amount }}"{% if amount == salary_min_value|int and salary_min_value %} selected{% endif %}>{{ '0' if amount == 0 else (amount // 1000)|string ~ 'k' }}</option>{% endfor %}</select></label><span aria-hidden="true">to</span><label><span>Maximum</span><select data-salary-range-max><option value="">Not set</option>{% if salary_max_value and ((salary_max_value|int) > 300000 or (salary_max_value|int) % 1000 != 0) %}<option value="{{ salary_max_value }}" selected>{{ salary_max_value }}</option>{% endif %}{% for amount in range(0, 300001, 1000) %}<option value="{{ amount }}"{% if amount == salary_max_value|int and salary_max_value %} selected{% endif %}>{{ '0' if amount == 0 else (amount // 1000)|string ~ 'k' }}</option>{% endfor %}</select></label></div>{% if not saved_salary %}<small class="evidence-suggestion-copy">Optional private range.</small>{% endif %}{% if saved_salary %}<form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}" data-preserve-scroll><input type="hidden" name="kind" value="context"><input type="hidden" name="target_key" value="{{ context_keys.salary_range }}"><button type="submit">Restore automatic range</button></form>{% endif %}
+          </div>
+        </article>
+
+        {% if item.stored.result.posting_date %}
+          {% set posting = item.stored.result.posting_date %}
+          {% set posting_state = 'satisfied' if posting.freshness.value == 'fresh' else 'supporting' if posting.freshness.value == 'medium' else 'violated' if posting.freshness.value == 'old' else 'unknown' %}
+          <h3 class="subheading" id="posting-date">Posting date {{ influence('posting_date') }}</h3>
+          <article class="evidence-comparison posting-date-comparison {{ posting_state }}{% if posting_date_override %} has-user-override{% endif %}">
+            <div class="evidence-auto">
+              <span class="evidence-column-label">Automatic source evidence</span>
+              <strong{% if posting_date_override %} class="evidence-original-value"{% endif %}>{{ posting.automatic_date.strftime('%d %b %Y') if posting.automatic_date else 'No attributable date found' }}</strong>
+              <span class="evidence-value-badge {{ 'satisfied' if posting.automatic_freshness.value == 'fresh' else 'supporting' if posting.automatic_freshness.value == 'medium' else 'violated' if posting.automatic_freshness.value == 'old' else 'unknown' }}{% if posting_date_override %} evidence-original-value{% endif %}">{{ posting.automatic_freshness.value|title }}</span>
+              <small>{% if posting.confidence %}{{ posting.confidence.value|title }} confidence{% else %}Unknown confidence{% endif %}</small>
+              <details class="evidence-details"><summary>Classification, source evidence and score effect</summary><div class="evidence-details-body">
+                <p>Fresh: newer than one calendar month. Medium: one through four calendar months. Old: older than four calendar months. Missing dates stay unknown.</p>
+                {% if posting.source %}<small>Source: {{ posting.source.value|replace('_', ' ') }}</small>{% endif %}
+                {% if posting.evidence_quote %}<blockquote>“{{ posting.evidence_quote }}”</blockquote>{% else %}<p>No posting date was attributed to the advertisement. The import date was not substituted.</p>{% endif %}
+                <small>Effective classification: {{ posting.freshness.value|title }} · score adjustment {{ '%+d'|format(posting.score_adjustment) }} · evaluated {{ posting.evaluated_on.strftime('%d %b %Y') }}</small>
+              </div></details>
+            </div>
+            <div class="evidence-user" data-evidence-edit>
+              <span class="evidence-column-label">Your value{% if posting_date_override %}<b>Saved correction</b>{% endif %}</span>
+              {% set posting_value = posting_date_override.posting_date.isoformat() if posting_date_override else posting.effective_date.isoformat() if posting.effective_date else '' %}<input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="posting_date"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="posting_date"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ posting_value }}"><label>Posting date<input class="{{ 'evidence-suggestion-input' if not posting_value else '' }}" form="evidence-bulk-form" name="evidence_value" type="date" value="{{ posting_value }}" data-evidence-input></label>{% if not posting_value %}<small class="evidence-suggestion-copy">No date was attributed automatically. Enter the publication date shown by the employer if you find it.</small>{% endif %}
+              {% if posting_date_override %}
+                <form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}">
+                  <input type="hidden" name="kind" value="{{ posting_date_override.kind.value }}"><input type="hidden" name="target_key" value="{{ posting_date_override.target_key }}">
+                  <button type="submit">Restore automatic</button>
+                </form>
+              {% endif %}
+            </div>
+          </article>
+        {% endif %}
+
+        </section>
+        {{ employer_facts_markup|safe }}
+
+        {% if item.stored.result.commutes %}
+          <h3 class="subheading">Calculated commute {{ influence('compass', true) }}</h3>
+          <p class="evidence-correction-intro">Automatic evidence stays visible on the left. Your private value for this persona and job is shown on the right.</p>
+          <div class="evidence-comparison-list">
+            {% for commute in item.stored.result.commutes %}
+              {% set saved = commute_overrides.get(commute.profile_fact_id|string) %}
+              <article class="evidence-comparison commute-comparison {{ commute|commute_state }}{% if saved %} has-user-override{% endif %}">
+                <div class="evidence-auto">
+                  <span class="evidence-column-label">Automatic route evidence</span>
+                  <strong>{{ commute.mode.value|title }}</strong>
+                  <span>{{ commute.estimate.origin_resolved or commute.origin }} → {{ commute.estimate.destination_resolved or commute.destination }}</span>
+                  {% if commute.estimate.duration_minutes %}<div class="route-duration{% if saved %} evidence-original-value{% endif %}"><b>{{ commute.estimate.duration_minutes|duration }}</b>{% if commute.estimate.duration_low_minutes and commute.estimate.duration_high_minutes and commute.estimate.duration_low_minutes != commute.estimate.duration_high_minutes %}<small class="route-duration-range">Range {{ commute.estimate.duration_low_minutes|duration }}–{{ commute.estimate.duration_high_minutes|duration }}</small>{% endif %}</div>{% elif commute.estimate.status.value == 'needs_precise_location' %}<b{% if saved %} class="evidence-original-value"{% endif %}>More precision needed</b>{% else %}<b{% if saved %} class="evidence-original-value"{% endif %}>Unknown</b>{% endif %}
+                  <small>Limit {{ commute.maximum_minutes|duration }}{% if commute.estimate.distance_km is not none %} · {{ commute.estimate.distance_km }} km{% endif %} · {{ commute.estimate.confidence.value }} confidence</small>
+                  <details class="evidence-details"><summary>Route assumptions, samples and provider details</summary><div class="evidence-details-body">
+                    <small>{{ commute.estimate.route_scope|replace('_', ' ') }} · {{ 'cached' if commute.cached else 'checked' }} via {{ commute.estimate.provider }}{% if commute.evaluated_destinations|length + commute.omitted_destination_count > 1 %} · checked {{ commute.evaluated_destinations|length }}{% if commute.omitted_destination_count %} of {{ commute.evaluated_destinations|length + commute.omitted_destination_count }}{% endif %} locations{% endif %}</small>
+                    <small>Origin: {{ commute.estimate.origin_precision.value|replace('_', ' ') }} · Destination: {{ commute.estimate.destination_precision.value|replace('_', ' ') }}{% if commute.estimate.sample_minutes %} · Samples: {% for sample in commute.estimate.sample_minutes %}{{ sample|duration }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</small>
+                    {% if commute.estimate.message %}<p>{{ commute.estimate.message }}</p>{% endif %}
+                    {% if commute.estimate.attempts %}<details><summary>Provider diagnostics</summary><ul>{% for attempt in commute.estimate.attempts %}<li>{{ attempt }}</li>{% endfor %}</ul></details>{% endif %}
+                    {% if commute.estimate.attribution %}<small>{% if commute.estimate.attribution_url %}<a href="{{ commute.estimate.attribution_url }}" target="_blank" rel="noopener noreferrer">{{ commute.estimate.attribution }}</a>{% else %}{{ commute.estimate.attribution }}{% endif %}</small>{% endif %}
+                  </div></details>
+                </div>
+                <div class="evidence-user" data-evidence-edit>
+                  <span class="evidence-column-label">Your value{% if saved %}<b>Saved correction</b>{% endif %}</span>
+                  {% set commute_value = saved.commute_minutes if saved else (commute.user_override_minutes or commute.estimate.duration_minutes or '') %}<input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="commute_minutes"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ commute.profile_fact_id }}"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ commute_value }}"><label>Travel time in minutes<input class="{{ 'evidence-suggestion-input' if not commute_value else '' }}" form="evidence-bulk-form" name="evidence_value" type="number" min="1" max="360" value="{{ commute_value }}" placeholder="Add checked minutes" data-evidence-input></label>
+                  {% if saved %}
+                    <form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}">
+                      <input type="hidden" name="kind" value="{{ saved.kind.value }}"><input type="hidden" name="target_key" value="{{ saved.target_key }}">
+                      <button type="submit">Restore automatic</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% elif item.stored.result.remote_only_mobility %}
+          <h3 class="subheading">Calculated commute {{ influence('compass', true) }}</h3>
+          <article class="evidence-comparison commute-comparison {{ 'violated' if item.stored.result.remote_only_excluded else 'unknown' }}">
+            <div class="evidence-auto">
+              <span class="evidence-column-label">Remote-only role</span>
+              <strong>No workplace route required</strong>
+              <small>No route provider was called because the advertisement is remote only.</small>
+            </div>
+            <div class="evidence-user">
+              <span class="evidence-column-label">Effective mobility outcome</span>
+              {% if item.stored.result.remote_only_excluded %}
+                <span class="evidence-value-badge violated">× Blocker</span>
+                <strong>Remote work conflicts with your explicit exclusion.</strong>
+              {% else %}
+                <span class="evidence-value-badge supporting">✓ Remote fit</span>
+                <strong>+{{ item.stored.result.remote_mobility_points }} mobility points</strong>
+                <small>Each applicable commute boundary receives three quarters of its usual positive route credit.</small>
+              {% endif %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if item.stored.result.derived_work_mode_facts %}
+          <h3 class="subheading">Working-mode evidence {{ influence('compass', true) }}</h3>
+          <div class="evidence-comparison-list">{% for fact in item.stored.result.derived_work_mode_facts %}{% set effective_fact = item.stored.result.effective_work_mode_facts[loop.index0] if item.stored.result.effective_work_mode_facts|length > loop.index0 else fact %}{% set work_key = context_keys.work_mode_prefix ~ fact.key %}{% set saved = context_overrides.get(work_key) %}{% set work_value = saved.text_value if saved else effective_fact.value %}<article class="evidence-comparison unknown{% if saved %} has-user-override{% endif %}"><div class="evidence-auto"><span class="evidence-column-label">Automatic work-mode evidence</span><strong{% if saved %} class="evidence-original-value"{% endif %}>{{ fact.value }}</strong><small>Source-backed observation · compared with your Compass below</small><span>{{ fact.key|replace('_', ' ') }}</span><details class="evidence-details"><summary>Source evidence</summary><blockquote>“{{ fact.evidence_quote }}”</blockquote></details></div><div class="evidence-user" data-evidence-edit><span class="evidence-column-label">Your value{% if saved %}<b>Saved correction</b>{% endif %}</span><input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="context"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ work_key }}"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ work_value }}"><label>{{ fact.key|replace('_', ' ')|title }}<input form="evidence-bulk-form" name="evidence_value" maxlength="1000" value="{{ work_value }}" data-evidence-input></label>{% if saved %}<form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}"><input type="hidden" name="kind" value="context"><input type="hidden" name="target_key" value="{{ work_key }}"><button type="submit">Restore automatic</button></form>{% endif %}</div></article>{% endfor %}</div>
+        {% endif %}
+
+        {% if item.why_still_apply %}<details class="why-apply compact-disclosure"><summary>Why still apply?</summary><p>{{ item.why_still_apply }}</p></details>{% endif %}
+        <h3 class="subheading">Compass checks {{ influence('compass') }}</h3>
+        <p class="evidence-correction-intro">The automatic comparison remains traceable. A saved user value affects only this persona and job; it never edits the public advertisement or Compass.</p>
+        {% if item.stored.result.reasons %}
+          <div class="evidence-comparison-list">
+            {% for reason in item.stored.result.reasons %}
+              {% set saved = reason_overrides.get(reason.profile_fact_id|string) %}
+              {% set automatic_outcome = reason.automatic_outcome or reason.outcome %}
+              <article class="evidence-comparison reason-comparison {{ reason.outcome.value }}{% if saved %} has-user-override{% endif %}">
+                <div class="evidence-auto">
+                  <span class="evidence-column-label">Automatic comparison</span>
+                  <strong>{{ reason.profile_value }}</strong>
+                  <span class="evidence-value-badge {{ automatic_outcome.value }}{% if saved %} evidence-original-value{% endif %}">{{ automatic_outcome.value|replace('_', ' ')|title }}</span>
+                  {% if reason.reasoning_confidence %}<small class="evidence-confidence">{{ reason.reasoning_confidence.value|title }} confidence{% if reason.ai_assisted %} · AI-assisted{% endif %}</small>{% elif reason.ai_assisted %}<small class="evidence-confidence">AI-assisted</small>{% endif %}
+                  <details class="evidence-details"><summary>Explanation, evidence and sources</summary><div class="evidence-details-body">
+                    {% if reason.user_overridden %}<p>Automatic outcome before your saved value. The supporting quotes and sources remain unchanged.</p>{% else %}<p>{{ reason.explanation }}</p>{% endif %}
+                    {% for quote in reason.evidence_quotes %}<blockquote>“{{ quote }}”</blockquote>{% endfor %}
+                    {% for url in reason.evidence_urls %}<a class="source-url" href="{{ url }}" target="_blank" rel="noopener noreferrer">Evidence source ↗</a>{% endfor %}
+                  </div></details>
+                </div>
+                <div class="evidence-user" data-evidence-edit>
+                  <span class="evidence-column-label">Your value{% if saved %}<b>Saved correction</b>{% endif %}</span>
+                  <span class="evidence-value-badge {{ reason.outcome.value }}">{% if reason.outcome.value in ['satisfied', 'supporting'] %}✓ Good{% elif reason.outcome.value == 'violated' %}× Blocker{% else %}! Check{% endif %}</span>
+                  {% set reason_value = saved.reason_value.value if saved else 'positive' if automatic_outcome.value in ['satisfied', 'supporting'] else automatic_outcome.value %}<input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="reason"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ reason.profile_fact_id }}"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ reason_value }}"><label>Outcome<select class="{{ 'evidence-suggestion-input' if reason_value == 'unknown' else '' }}" form="evidence-bulk-form" name="evidence_value" data-evidence-input><option value="positive"{% if reason_value == 'positive' %} selected{% endif %}>Supports / satisfies</option><option value="violated"{% if reason_value == 'violated' %} selected{% endif %}>Violates</option><option value="unknown"{% if reason_value == 'unknown' %} selected{% endif %}>Still unresolved — needs evidence</option></select></label>
+                  {% if saved %}
+                    <form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}">
+                      <input type="hidden" name="kind" value="{{ saved.kind.value }}"><input type="hidden" name="target_key" value="{{ saved.target_key }}">
+                      <button type="submit">Restore automatic</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}<p class="gentle-note">No confirmed Compass statement produced comparable evidence.</p>{% endif %}
+
+        {% set all_skills = item.stored.result.matched_required_skills + item.stored.result.missing_required_skills %}
+        <h3 class="subheading" id="required-skills">Required skill checks {{ influence('skills') }}</h3>
+        {% if all_skills %}
+          <div class="evidence-comparison-list skill-comparison-list">
+            {% for skill in all_skills %}
+              {% set saved = skill_overrides.get(skill|lower) %}
+              {% set result_matched = skill in item.stored.result.matched_required_skills %}
+              {% set overridden_to_matched = skill in item.stored.result.user_overridden_matched_skills %}
+              {% set overridden_to_missing = skill in item.stored.result.user_overridden_missing_skills %}
+              {% set automatic_matched = (result_matched and not overridden_to_matched) or overridden_to_missing %}
+              {% set effective_matched = result_matched %}
+              {% set in_compass = persona_compass_skill_presence.get(skill|lower, false) %}
+              <article class="evidence-comparison skill-comparison {{ 'satisfied' if effective_matched else 'unknown' }}{% if saved %} has-user-override{% endif %}">
+                <div class="evidence-auto">
+                  <span class="evidence-column-label">Automatic skill evidence</span>
+                  <strong>{{ skill }}</strong>
+                  <span class="evidence-value-badge {{ 'satisfied' if automatic_matched else 'unknown' }}{% if saved %} evidence-original-value{% endif %}">{{ 'Evidenced by Compass' if automatic_matched else 'Not evidenced' }}</span>
+                  <span class="compass-skill-status {{ 'is-present' if in_compass else 'is-absent' }}">{{ '✓ Already in this persona’s Compass' if in_compass else 'Not currently in this persona’s Compass' }}</span>
+                </div>
+                <div class="evidence-user" data-evidence-edit>
+                  <span class="evidence-column-label">Your value{% if saved %}<b>Saved correction</b>{% endif %}</span>
+                  <span class="evidence-value-badge {{ 'satisfied' if effective_matched else 'unknown' }}">{{ '✓ Good' if effective_matched else '! Check' }}</span>
+                  {% set skill_value = saved.skill_value.value if saved else 'matched' if automatic_matched else 'missing' %}<input form="evidence-bulk-form" type="hidden" name="evidence_kind" value="skill"><input form="evidence-bulk-form" type="hidden" name="evidence_key" value="{{ skill|lower }}"><input form="evidence-bulk-form" type="hidden" name="evidence_initial" value="{{ skill_value }}"><label>Capability state<select class="{{ 'evidence-suggestion-input' if skill_value == 'missing' else '' }}" form="evidence-bulk-form" name="evidence_value" data-evidence-input><option value="matched"{% if skill_value == 'matched' %} selected{% endif %}>I can do this</option><option value="missing"{% if skill_value == 'missing' %} selected{% endif %}>Not evidenced yet</option></select></label>
+                  {% if saved %}
+                    <form class="evidence-restore-form" method="post" action="{{ url_for('job_evidence_delete', record_id=detail.record.id) }}">
+                      <input type="hidden" name="kind" value="{{ saved.kind.value }}"><input type="hidden" name="target_key" value="{{ saved.target_key }}">
+                      <button type="submit">Restore automatic</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+          <div data-evidence-edit>
+            <input type="hidden" data-evidence-initial value="{{ 'true' if also_update_compass_skills else 'false' }}">
+            <input form="evidence-bulk-form" type="hidden" name="also_update_compass_skills_present" value="true">
+            <label class="switch-row skill-compass-bulk-option"><input form="evidence-bulk-form" type="checkbox" name="also_update_compass_skills" value="true"{% if also_update_compass_skills %} checked{% endif %} data-evidence-input><span><strong>Also update my Compass from skill changes</strong><small>Newly changed skills marked “I can do this” are added once to this persona’s confirmed Compass. Skills marked not evidenced are never added or removed.</small></span></label>
+          </div>
+        {% else %}<p class="gentle-note">No required skills were extracted from this advertisement.</p>{% endif %}
+        <div class="evidence-bulk-actions" data-evidence-bulk-actions hidden role="region" aria-live="polite" aria-label="Unsaved evidence changes"><div><strong><span data-evidence-change-count>0</span> unsaved evidence change(s)</strong><small>Automatic evidence stays visible.</small></div><div class="inline-actions"><button class="secondary-button" type="button" data-evidence-reset>Discard changes</button><button class="confirm-button" type="submit" form="evidence-bulk-form">Save changes and update score</button></div></div>
+        <noscript><button class="confirm-button" type="submit" form="evidence-bulk-form">Save all evidence changes</button></noscript>
+      {% elif detail.job %}
+        <div class="gentle-note">This job is safely stored but has not been included in a saved match run yet.</div>
+        {% if detail.card.source_is_manual %}
+          <section class="panel primary-action-shell manual-job-match-action" aria-labelledby="manual-job-match-heading">
+            <div class="primary-action-tile">
+              <div><p class="eyebrow">Next step</p><h3 id="manual-job-match-heading">Compare this pasted job with your Compass.</h3><p>Only this job is evaluated. Your other saved jobs are not rematched.</p></div>
+              {% if match_only_allowed %}
+                <form method="post" action="{{ url_for('job_match_only', record_id=detail.record.id) }}" data-busy-message="Starting a background Match for this job…"><button class="primary-button" type="submit">Match this job only <span aria-hidden="true">→</span></button></form>
+              {% else %}
+                <div><button class="primary-button" type="button" disabled aria-disabled="true">Match this job only</button>{% if match_only_reason %}<small class="form-help">{{ match_only_reason }}</small>{% endif %}</div>
+              {% endif %}
+            </div>
+          </section>
+        {% else %}
+          <a class="secondary-button" href="{{ url_for('matches') }}">Open Matching</a>
+        {% endif %}
+      {% else %}
+        <div class="gentle-note">No advertisement details were saved because the source was not reachable. The URL remains here so it can be checked or replaced.</div>
+      {% endif %}
+    </section>
+
+    <aside class="result-actions">
+      {% if item %}
+        <section class="panel">
+          <p class="eyebrow">Your signal</p><h2>How does this opportunity feel?</h2>
+          <p class="action-copy">Save your reaction and an optional note.</p>
+          <form class="stacked-form" method="post" action="{{ url_for('match_feedback', run_id=matched.groups.run.id, record_id=item.record.id) }}">
+            <label>Your reaction<select name="feedback" required>{% for state, label in feedback_labels.items() %}<option value="{{ state.value }}" {% if item.interaction and item.interaction.feedback == state %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <label>What influenced you? <small>Optional</small><textarea name="note" rows="4" maxlength="5000" placeholder="For example: the responsibilities appeal to me, but the schedule or company context does not.">{{ item.interaction.note if item.interaction and item.interaction.note else '' }}</textarea></label>
+            <label class="switch-row"><input type="checkbox" name="teach_compass" value="true" checked><span><strong>Teach my Compass</strong><small>Adds this as an editable preference.</small></span></label>
+            <button class="primary-button" type="submit">Save feedback</button>
+          </form>
+        </section>
+        <section class="panel application-draft-launcher">
+          <p class="eyebrow">Application materials</p><h2>Prepare your cover letter</h2>
+          <p class="action-copy">Use the current job evidence and confirmed Compass facts in the dedicated, editable Apply workspace.</p>
+          {% if application_drafts %}
+            <div class="job-draft-tiles">
+              {% for draft in application_drafts %}
+                <a href="{{ url_for('apply') }}?job={{ detail.record.id }}&draft={{ draft.id }}#draft-{{ draft.id }}"><strong>{{ draft.name }}</strong><small>Slot {{ draft.slot }} · updated {{ draft.updated_at.astimezone().strftime('%d %b') }}</small></a>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if item.stored.result.disposition.value != 'blocked' and item.source_is_current %}
+            {% if application_drafts|length < max_application_drafts %}
+              <a class="primary-button" href="{{ url_for('apply') }}?job={{ detail.record.id }}&create=true">{{ 'Create another cover letter' if application_drafts else 'Create cover letter' }} <span aria-hidden="true">→</span></a>
+            {% else %}
+              <a class="secondary-button" href="{{ url_for('apply') }}?job={{ detail.record.id }}&draft={{ application_drafts[0].id }}#draft-{{ application_drafts[0].id }}">Manage {{ max_application_drafts }} drafts</a>
+            {% endif %}
+            <p class="form-help">Nothing is submitted automatically.</p>
+          {% else %}
+            <p class="gentle-note">Refresh a changed source—or resolve the blocking Compass boundary—before generating a cover letter.</p>
+          {% endif %}
+        </section>
+      {% endif %}
+        <section class="panel application-guidance-panel" id="application-guidance" aria-labelledby="application-guidance-heading">
+          <p class="eyebrow">Application contact and process</p>
+          <h2 id="application-guidance-heading">Prepare the right package</h2>
+          {% if application_guidance_enabled %}
+            <p class="action-copy">Only details published in this job source—or your private corrections—appear here. WorkLifeBalance never contacts or submits to an employer automatically.</p>
+            {% if application_guidance_override %}
+              <article class="evidence-comparison application-guidance-comparison supporting has-user-override">
+                <div class="evidence-auto">
+                  <span class="evidence-column-label">Automatic source values</span>
+                  {{ application_guidance_summary(source_application_guidance, true) }}
+                  <small>Only the original values are superseded. Their labels and source provenance remain active.</small>
+                </div>
+                <div class="evidence-user">
+                  <span class="evidence-column-label">Your values<b>Saved correction</b></span>
+                  {{ application_guidance_summary(application_guidance) }}
+                </div>
+              </article>
+            {% else %}
+              {{ application_guidance_summary(application_guidance) }}
+            {% endif %}
+            {% if application_guidance.application_url %}
+              <a class="source-url" href="{{ application_guidance.application_url.value }}" target="_blank" rel="noopener noreferrer">Application page ↗</a>
+            {% elif application_job_page_url %}
+              <a class="source-url" href="{{ application_job_page_url }}" target="_blank" rel="noopener noreferrer">Job page ↗</a>
+              <small class="form-help">Verified source link; not a confirmed application channel.</small>
+            {% endif %}
+
+            <details class="evidence-details application-guidance-editor">
+              <summary>{{ 'Edit your saved copy' if application_guidance_override else 'Correct or complete these details' }}</summary>
+              <form class="stacked-form" method="post" action="{{ url_for('job_application_guidance_save', record_id=detail.record.id) }}">
+                <label>Contact name <small>Unknown is allowed</small><input name="contact_name" maxlength="300" value="{{ application_guidance.contact_name.value if application_guidance.contact_name else '' }}" placeholder="Unknown"></label>
+                <label>Contact role <small>Optional</small><input name="contact_role" maxlength="300" value="{{ application_guidance.contact_role.value if application_guidance.contact_role else '' }}" placeholder="Unknown"></label>
+                <label>Application email <small>Optional</small><input name="contact_email" type="email" maxlength="320" value="{{ application_guidance.contact_email.value if application_guidance.contact_email else '' }}" placeholder="Unknown"></label>
+                <label>Application phone <small>Optional</small><input name="contact_phone" maxlength="100" value="{{ application_guidance.contact_phone.value if application_guidance.contact_phone else '' }}" placeholder="Unknown"></label>
+                <label>Published address <small>Only when published on this job page</small><input name="postal_address" maxlength="500" value="{{ application_guidance.postal_address.value if application_guidance.postal_address else '' }}" placeholder="Unknown"></label>
+                <label>Preferred channel<select name="application_channel"><option value="" {% if not application_guidance.application_channel %}selected{% endif %}>Unknown</option><option value="employer_portal" {% if application_guidance.application_channel and application_guidance.application_channel.value == 'employer_portal' %}selected{% endif %}>Employer portal</option><option value="email" {% if application_guidance.application_channel and application_guidance.application_channel.value == 'email' %}selected{% endif %}>Email</option><option value="postal" {% if application_guidance.application_channel and application_guidance.application_channel.value == 'postal' %}selected{% endif %}>Postal</option><option value="other" {% if application_guidance.application_channel and application_guidance.application_channel.value == 'other' %}selected{% endif %}>Other</option></select></label>
+                <label>Application URL <small>Optional</small><input name="application_url" type="url" maxlength="2000" value="{{ application_guidance.application_url.value if application_guidance.application_url else '' }}" placeholder="Unknown"></label>
+                <label>Requested documents <small>One item per line</small><textarea name="requested_documents" rows="3" maxlength="2000" placeholder="Unknown">{{ application_guidance.requested_documents|map(attribute='value')|join('\n') }}</textarea></label>
+                <label>Maximum file size <small>Optional</small><input name="max_file_size" maxlength="100" value="{{ application_guidance.max_file_size.value if application_guidance.max_file_size else '' }}" placeholder="Unknown"></label>
+                <label>Maximum pages <small>Optional number</small><input name="max_pages" inputmode="numeric" maxlength="20" value="{{ application_guidance.max_pages.value if application_guidance.max_pages else '' }}" placeholder="Unknown"></label>
+                <label>Application deadline <small>Use the wording shown by the employer</small><input name="application_deadline" maxlength="200" value="{{ application_guidance.application_deadline.value if application_guidance.application_deadline else '' }}" placeholder="Unknown"></label>
+                <label>Submission instructions <small>One rule per line</small><textarea name="instructions" rows="4" maxlength="5000" placeholder="Unknown">{{ application_guidance.instructions|map(attribute='value')|join('\n') }}</textarea></label>
+                <button class="confirm-button" type="submit">Save my corrected copy</button>
+              </form>
+              <p class="form-help">Saving this full form makes every displayed field your private value. Leave a field blank to mark it unknown and clear the inherited source value.</p>
+              {% if application_guidance_override %}
+                <form method="post" action="{{ url_for('job_application_guidance_restore', record_id=detail.record.id) }}">
+                  <button class="star-rating-clear" type="submit">Restore all source-published values</button>
+                </form>
+              {% endif %}
+            </details>
+
+            <details class="evidence-details">
+              <summary>Source-published evidence and provenance</summary>
+              <div class="evidence-details-body">
+                {% if source_application_guidance_items %}
+                  {% for label, entry in source_application_guidance_items %}
+                    <section class="application-guidance-source-item">
+                      <strong>{{ label }} · {{ entry.value }}</strong>
+                      <blockquote>“{{ entry.evidence_quote }}”</blockquote>
+                      {% if entry.source_url %}<a class="source-url" href="{{ entry.source_url }}" target="_blank" rel="noopener noreferrer">Open the attributed job source ↗</a>{% endif %}
+                    </section>
+                  {% endfor %}
+                {% else %}
+                  <p>No application contact or submission rule was attributable to this saved advertisement. Unknowns were not inferred.</p>
+                {% endif %}
+              </div>
+            </details>
+          {% else %}
+            <p class="gentle-note">This feature is unavailable outside local use until the legal review, processor review, legitimate-interest assessment, and transparency plan are complete.</p>
+          {% endif %}
+        </section>
+      {% if item %}
+        <section class="panel application-state-panel" data-application-state-detail="{{ item.interaction.application_state.value if item.interaction else 'discovered' }}">
+          <p class="eyebrow">Application tracking</p><h2>Keep your place</h2>
+          <form class="stacked-form" method="post" action="{{ url_for('match_application', run_id=matched.groups.run.id, record_id=item.record.id) }}">
+            <label>Current state<select name="application_state">{% for state, label in application_labels.items() %}<option value="{{ state.value }}" {% if item.interaction and item.interaction.application_state == state %}selected{% elif not item.interaction and state.value == 'discovered' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <button class="secondary-button" type="submit">Update state</button>
+          </form>
+          {% if matched.events %}<details><summary>Decision history</summary><ol class="history-list">{% for event in matched.events|reverse %}<li><strong>{{ event.kind.value|title }} · {{ application_event_labels.get(event.value, event.value|replace('_', ' ')|title) }}</strong><span>{{ event.created_at.astimezone().strftime('%d %b %Y, %H:%M') }}</span>{% if event.note %}<small>{{ event.note }}</small>{% endif %}</li>{% endfor %}</ol></details>{% endif %}
+        </section>
+      {% endif %}
+      <section class="panel source-panel" aria-labelledby="source-heading">
+        <p class="eyebrow">Source confidence</p><h2 id="source-heading">{{ 'Manual and traceable' if detail.card.source_is_manual else 'Fresh and traceable' }}</h2>
+        <dl class="source-list"><div><dt>Link status</dt><dd>{{ detail.card.availability_label }}</dd></div><div><dt>{{ 'Saved' if detail.card.source_is_manual else 'Last checked' }}</dt><dd>{{ detail.card.last_checked_label }}</dd></div><div><dt>HTTP response</dt><dd>{{ 'Not requested' if detail.card.source_is_manual else (detail.record.last_http_status or 'Unavailable') }}</dd></div><div><dt>Saved versions</dt><dd>{{ detail.record.revision_count }}</dd></div></dl>
+        {% if detail.card.source_is_manual and detail.job and detail.job.source_url %}<a class="source-url" href="{{ detail.job.source_url }}" target="_blank" rel="noopener noreferrer">{{ detail.job.source_url }} · unverified</a>{% elif not detail.card.source_is_manual %}<a class="source-url" href="{{ detail.card.source_url }}" target="_blank" rel="noopener noreferrer">{{ detail.card.source_url }}</a>{% endif %}
+        <details><summary>Check history</summary><ol class="history-list">{% for observation in detail.observations|reverse %}<li><strong>{{ observation.kind.value|replace('_', ' ')|title }}</strong><span>{{ observation.checked_at.astimezone().strftime('%d %b %Y, %H:%M') }}{% if observation.http_status %} · HTTP {{ observation.http_status }}{% endif %}</span>{% if observation.message %}<small>{{ observation.message }}</small>{% endif %}</li>{% endfor %}</ol></details>
+        {% if detail.revisions %}<details><summary>Saved versions</summary><ol class="history-list">{% for revision in detail.revisions|reverse %}<li><strong>Version {{ detail.revisions|length - loop.index0 }}</strong><span>{{ revision.observed_at.astimezone().strftime('%d %b %Y, %H:%M') }}</span><small>Content {{ revision.content_hash[:12] }}</small></li>{% endfor %}</ol></details>{% endif %}
+        <details class="danger-zone"><summary>Remove this job from the archive</summary><p>Deletion also removes versions, results, feedback, and commute data. It frees one of your 25 slots.</p><form class="stacked-form" method="post" action="{{ url_for('job_delete', record_id=detail.record.id) }}" data-delete-confirm data-delete-subject="this job and its history"><input type="hidden" name="confirm_delete" value="true"><button class="danger-button" type="submit">Delete and free this slot</button></form></details>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

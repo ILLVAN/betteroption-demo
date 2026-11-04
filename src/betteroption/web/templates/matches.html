@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Match · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Evidence-backed matching</p>
+      <h1>Your strongest options, with the doubts left in.</h1>
+      <p>Confirmed boundaries decide the groups. Missing advertisement detail lowers evidence coverage, not compatibility. Every explanation comes from your Compass, a verified route, or the advertisement.</p>
+    </div>
+  </section>
+
+  {% include "compass_integrity_notice.html" %}
+
+  {% set match_has_compass = workspace and workspace.session.profile.confirmed_facts|length > 0 %}
+  {% set match_has_jobs = opportunities is defined and opportunities|length > 0 %}
+  {% set match_ready = match_has_compass and match_has_jobs %}
+  {% if match_can_run is defined %}{% set match_ready = match_can_run %}{% endif %}
+  <section class="panel primary-action-shell match-primary-action-shell" aria-labelledby="match-primary-title">
+    <div class="primary-action-tile match-primary-action">
+      <div class="primary-action-copy"><p class="eyebrow">{{ 'Current Compass' if match_has_compass else 'Matching setup' }}</p><h2 id="match-primary-title">{{ 'Refresh every saved role' if groups else 'Create your first evidence-backed ranking' }}</h2><p>{% if not match_ready and match_block_reason is defined and match_block_reason %}{{ match_block_reason }}{% elif not match_has_compass %}Add at least one active Compass statement to give Matching a direction.{% elif not match_has_jobs %}Save an open job through Add or Explore before running Matching.{% elif groups %}Recalculate after your evidence or Compass changed. Ratings update locally when you save them.{% else %}Compare your saved jobs with the boundaries and preferences you confirmed.{% endif %}</p><span class="primary-action-status" id="match-readiness">Careful source and route checks run in the background and can take several minutes.</span></div>
+      <form method="post" action="{{ url_for('match_run') }}" data-busy-message="Comparing your Compass, job evidence, and commute options…">
+        <button class="primary-button" type="submit" aria-describedby="match-readiness"{% if not match_ready %} disabled aria-disabled="true"{% endif %}>{% if groups %}Run again{% else %}Create my matches{% endif %} <span aria-hidden="true">→</span></button>
+      </form>
+    </div>
+  </section>
+
+  {% if not workspace %}
+    <section class="panel empty-state wide"><span aria-hidden="true">◎</span><h2>Start with Compass</h2><p>Your own must-haves, preferences, and boundaries must exist before jobs can be ranked.</p><a class="primary-button" href="{{ url_for('profile') }}">Build Compass</a></section>
+  {% else %}
+    {% if not groups %}
+      <details class="compact-page-help"><summary>Info</summary><div><p>Need another role? <a class="text-link" href="{{ url_for('add_jobs') }}">Add a public job URL</a> or discover candidates in <a class="text-link" href="{{ url_for('explore') }}">Explore</a>.</p><p>Matching evaluates up to 25 saved jobs with the complete confirmed Compass. Every configured commute constraint receives the same provider policy and time-window analysis.</p></div></details>
+      <section class="panel empty-state wide"><span aria-hidden="true">◇</span><h2>No match run yet</h2><p>Confirm at least one Compass statement and save an open job through Explore or Add, then create your first evidence-backed result set.</p><a class="secondary-button" href="{{ url_for('add_jobs') }}">Add a job</a></section>
+    {% else %}
+      <section class="result-summary panel" aria-label="Match run summary">
+        <div><strong data-match-summary-count="top">{{ groups.top|length }}</strong><span>Top</span></div>
+        <div><strong data-match-summary-count="stretch">{{ groups.stretch|length }}</strong><span>Stretch</span></div>
+        <div><strong data-match-summary-count="blocked">{{ groups.blocked|length }}</strong><span>Blocked</span></div>
+        <p>Up to {{ groups.free_limit }} stored jobs and their Top or Stretch results are included. {{ groups.granted_count }} {% if groups.granted_count == 1 %}result has{% else %}results have{% endif %} been included so far.</p>
+      </section>
+      {% set match_has_notices = groups.has_partial_job_refresh or not groups.profile_is_current or not groups.algorithm_is_current %}
+      <div class="match-run-disclosures" aria-label="Match run information">
+        <details class="panel match-top-disclosure match-info-disclosure">
+          <summary>
+            <span class="match-disclosure-heading"><strong>Info</strong><small>How matching works and the state of this saved result set</small></span>
+            <span class="soft-status{% if match_has_notices %} needs-review{% endif %}">{% if match_has_notices %}Review notices{% else %}Guide{% endif %}</span>
+          </summary>
+          <div class="match-disclosure-body">
+            <p>Need another role? <a class="text-link" href="{{ url_for('add_jobs') }}">Add a public job URL</a> or discover candidates in <a class="text-link" href="{{ url_for('explore') }}">Explore</a>.</p>
+            <p>Matching evaluates up to 25 saved jobs with the complete confirmed Compass. Every configured commute constraint receives the same provider policy and time-window analysis.</p>
+            {% if groups.has_partial_job_refresh %}<p class="gentle-note"><strong>One job is newer:</strong> it was rematched on its own while the other saved scores were preserved. Run complete Match when you want every job recalculated together.</p>{% endif %}
+            {% if not groups.profile_is_current %}<p class="gentle-note">Your compass changed after this result set was created. The saved evidence remains visible, but run the match again before acting on its ranking.</p>{% endif %}
+            {% if not groups.algorithm_is_current %}<p class="gentle-note">This result set uses an earlier evidence model. Run Match again to apply the current modal-limit normalization, complete 25-job routing policy, Transitous public transport, and privacy-first Valhalla road, bicycle, and walking routes.</p>{% endif %}
+          </div>
+        </details>
+        <details class="panel match-top-disclosure match-run-facts-disclosure">
+          <summary>
+            <span class="match-disclosure-heading"><strong>Run facts</strong><small>{% if groups.run.metrics %}{{ groups.run.metrics.jobs_evaluated }} jobs · {{ groups.run.metrics.exact_route_jobs }} exact routes · {{ '%.1f'|format(groups.run.metrics.latency_ms / 1000) }} seconds{% else %}No detailed provider metrics saved{% endif %}</small></span>
+            <span class="soft-status">Details</span>
+          </summary>
+          <div class="match-disclosure-body">
+            {% if groups.run.metrics %}<p>{{ groups.run.metrics.jobs_evaluated }} jobs evaluated, {{ groups.run.metrics.included_slots }} included slots, {{ groups.run.metrics.exact_route_jobs }} exact-route jobs, and {{ groups.run.metrics.provider_operations }} provider operations in {{ '%.1f'|format(groups.run.metrics.latency_ms / 1000) }} seconds. Estimated provider cost: ${{ '%.4f'|format(groups.run.metrics.estimated_cost_usd) }}{% if groups.run.metrics.has_unpriced_operations %} plus unpriced operations{% endif %}.</p>{% else %}<p>This saved run predates detailed provider metrics. Its job evidence and ranking remain available.</p>{% endif %}
+          </div>
+        </details>
+      </div>
+
+      <form method="post" action="{{ url_for('jobs_bulk_delete') }}" data-selection-form data-delete-confirm data-delete-subject="selected matched jobs" data-match-layout data-match-run-id="{{ groups.run.id }}">
+        <input type="hidden" name="return_to" value="matches">
+        <input type="hidden" name="confirm_delete" value="true">
+        <details class="panel match-delete-disclosure">
+          <summary>
+            <span class="match-disclosure-heading"><strong>Select jobs to delete</strong><small>Destructive controls stay folded away until needed</small></span>
+            <span data-selection-count role="status" aria-live="polite" aria-atomic="true">0 selected</span>
+          </summary>
+          <div class="match-delete-disclosure-body">
+            <label class="switch-row"><input type="checkbox" data-select-all aria-describedby="match-delete-help"><span><strong>Select all included jobs</strong><small id="match-delete-help">This permanently removes selected jobs from Match and Archive and frees their slots.</small></span></label>
+            <button class="danger-button" type="submit" disabled>Delete selected and free slots</button>
+          </div>
+        </details>
+      {% set selection_mode = true %}
+      {% for disposition, title, description, items in [
+        ('top', 'Top matches', 'The strongest current evidence without a confirmed boundary conflict.', groups.top),
+        ('stretch', 'Stretch matches', 'Relevant possibilities with a conflict or important uncertainty worth examining.', groups.stretch),
+        ('blocked', 'Blocked by your boundaries', 'Kept visible so exclusions stay transparent and reversible.', groups.blocked)
+      ] %}
+        <section class="section-block result-section" aria-labelledby="{{ disposition }}-heading" data-match-section="{{ disposition }}">
+          <div class="section-heading"><div><p class="eyebrow">{{ disposition }}</p><h2 id="{{ disposition }}-heading">{{ title }}</h2><p>{{ description }}</p></div><span class="soft-status" data-match-section-count="{{ disposition }}">{{ items|length }}</span></div>
+          <div class="opportunity-grid opportunity-grid-wide" data-match-grid="{{ disposition }}"{% if not items %} hidden{% endif %}>
+            {% for item in items %}{% include "result_card.html" %}{% endfor %}
+          </div>
+          <div class="panel empty-state" data-match-empty="{{ disposition }}"{% if items %} hidden{% endif %}><h3>Nothing in this group</h3><p>The current evidence did not place any opportunity here.</p></div>
+        </section>
+      {% endfor %}
+      </form>
+    {% endif %}
+  {% endif %}
+{% endblock %}

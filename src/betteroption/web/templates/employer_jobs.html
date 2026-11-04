@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Employer jobs · WorkLifeBalance{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">Separate employer workspace</p>
+    <h1>Publish real roles, without seeing candidates.</h1>
+    <p>Verified representatives can publish public vacancy data. Candidate profiles, rankings, ratings, Compass facts, and drafts never appear here.</p>
+  </header>
+
+  {% if not job_posting_available %}
+    <section class="panel">
+      <p class="eyebrow">Hosted launch gate</p>
+      <h2>Employer publishing is not enabled here.</h2>
+      <p>The page is prepared, but hosted publication stays closed until legal review, incident handling, and an operator identity are configured.</p>
+      <a class="secondary-button" href="{{ url_for('account') }}">Back to Account</a>
+    </section>
+  {% elif not poster_access or poster_access.status != poster_access_status.APPROVED %}
+    <section class="panel account-settings" id="poster-access">
+      <div>
+        <p class="eyebrow">Human verification first</p>
+        <h2>{{ 'Verification pending' if poster_access and poster_access.status == poster_access_status.PENDING else 'Request job-poster access' }}</h2>
+        {% if poster_access and poster_access.status == poster_access_status.REJECTED %}
+          <p>{{ poster_access.reviewer_note }}</p>
+        {% else %}
+          <p>An operator checks the company, domain, and representative before publication controls become available.</p>
+        {% endif %}
+      </div>
+      {% if not poster_access or poster_access.status != poster_access_status.PENDING %}
+        <form class="stacked-form" method="post" action="{{ url_for('employer_jobs_request') }}">
+          <label>
+            Public company name
+            <input name="company_name" required maxlength="300" value="{{ poster_access.company_name if poster_access else '' }}">
+          </label>
+          <label>
+            Official company website
+            <input name="company_website" type="url" required maxlength="2000" placeholder="https://company.example" value="{{ poster_access.company_website if poster_access else '' }}">
+          </label>
+          <label>
+            Company email for verification
+            <input name="work_email" type="email" required maxlength="320" value="{{ poster_access.work_email if poster_access else '' }}">
+          </label>
+          <label>
+            Note when domains or legal entities differ
+            <textarea name="requester_note" maxlength="2000">{{ poster_access.requester_note if poster_access else '' }}</textarea>
+          </label>
+          <button class="primary-button" type="submit">Send verification request</button>
+        </form>
+      {% endif %}
+    </section>
+  {% else %}
+    <section class="panel account-settings" id="new-posting">
+      <div>
+        <p class="eyebrow">Verified poster · {{ poster_access.company_name }}</p>
+        <h2>Create a public job</h2>
+        <p>Use only authorized vacancy and business-contact information. The posting becomes an independent first-party Explore source.</p>
+      </div>
+      <form class="stacked-form" method="post" action="{{ url_for('employer_job_create') }}">
+        <div class="account-settings-grid">
+          <label>
+            Job title
+            <input name="title" required maxlength="500">
+          </label>
+          <label>
+            Employer
+            <input name="employer_name" required maxlength="500" value="{{ poster_access.company_name }}" readonly>
+          </label>
+          <label>
+            Location or Remote
+            <input name="location" required maxlength="500">
+          </label>
+          <label>
+            Work model
+            <select name="work_model" required>
+              <option>On-site</option>
+              <option>Hybrid</option>
+              <option>Remote</option>
+              <option>Flexible</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Concise Explore summary
+          <textarea name="summary" required maxlength="1500"></textarea>
+        </label>
+        <label>
+          Complete public job description
+          <textarea name="description" required maxlength="30000" rows="14"></textarea>
+        </label>
+        <div class="account-settings-grid">
+          <label>
+            Application URL
+            <input name="application_url" type="url" maxlength="2000" placeholder="https://company.example/jobs/apply">
+          </label>
+          <label>
+            Or application email
+            <input name="application_email" type="email" maxlength="320">
+          </label>
+        </div>
+        <label class="legal-check">
+          <input name="confirm_public_business_data" type="checkbox" value="true" required>
+          <span>I am authorized to publish this vacancy and its business-contact data.</span>
+        </label>
+        <label class="legal-check">
+          <input name="publish_now" type="checkbox" value="true">
+          <span>Publish immediately after validation; otherwise keep a draft.</span>
+        </label>
+        <button class="primary-button" type="submit">Save job</button>
+      </form>
+    </section>
+
+    <section class="section-block">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Your public source</p>
+          <h2>Employer postings</h2>
+        </div>
+        <span class="soft-status">{{ postings|length }}</span>
+      </div>
+      {% if not postings %}
+        <article class="panel"><p>No employer jobs have been created yet.</p></article>
+      {% endif %}
+      {% for posting in postings %}
+        <details class="panel" id="posting-{{ posting.id }}" {% if loop.first %}open{% endif %}>
+          <summary>
+            <strong>{{ posting.title }}</strong>
+            <span class="soft-status">{{ posting.status.value|title }}</span>
+          </summary>
+          <form class="stacked-form" method="post" action="{{ url_for('employer_job_update', posting_id=posting.id) }}">
+            <div class="account-settings-grid">
+              <label>Title<input name="title" required maxlength="500" value="{{ posting.title }}"></label>
+              <label>Employer<input name="employer_name" required maxlength="500" value="{{ posting.employer_name }}" readonly></label>
+              <label>Location<input name="location" required maxlength="500" value="{{ posting.location }}"></label>
+              <label>Work model<input name="work_model" required maxlength="80" value="{{ posting.work_model }}"></label>
+            </div>
+            <label>Summary<textarea name="summary" required maxlength="1500">{{ posting.summary }}</textarea></label>
+            <label>Description<textarea name="description" required maxlength="30000" rows="12">{{ posting.description }}</textarea></label>
+            <div class="account-settings-grid">
+              <label>Application URL<input name="application_url" type="url" maxlength="2000" value="{{ posting.application_url }}"></label>
+              <label>Application email<input name="application_email" type="email" maxlength="320" value="{{ posting.application_email }}"></label>
+            </div>
+            <button class="secondary-button" type="submit">Save changes</button>
+          </form>
+          <form class="inline-actions" method="post" action="{{ url_for('employer_job_status', posting_id=posting.id) }}">
+            {% if posting.status == posting_status.PUBLISHED %}
+              <a class="text-link" href="{{ url_for('published_job', posting_id=posting.id) }}">Open public page</a>
+              <button class="danger-button" type="submit" name="action" value="withdraw">Withdraw</button>
+            {% else %}
+              <button class="primary-button" type="submit" name="action" value="publish">Publish</button>
+            {% endif %}
+          </form>
+        </details>
+      {% endfor %}
+    </section>
+  {% endif %}
+{% endblock %}

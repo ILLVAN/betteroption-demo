@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Archive · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="page-heading">
+    <div><p class="eyebrow">Archive</p><h1>Everything you chose to keep.</h1><p>Open roles, closed pages, and links awaiting another check remain traceable here. Discover candidates in Explore or add a specific reference in Match.</p></div>
+  </section>
+  {% include "compass_integrity_notice.html" %}
+  <section class="panel primary-action-shell archive-primary-action-shell">
+    <div class="archive-summary primary-action-tile archive-primary-action">
+      <div><strong>{{ stored_count }}/{{ max_stored_jobs }}</strong><span>free job slots used</span></div>
+      <p>This page is the record, not another input flow. Deleting a job removes its revisions, reference settings, and match history—and frees its slot.</p>
+      <a class="primary-button" href="{{ url_for('explore') }}">Explore more jobs <span aria-hidden="true">→</span></a>
+    </div>
+  </section>
+  <nav class="filter-bar" aria-label="Filter opportunities">
+    <a href="{{ url_for('jobs') }}" {% if selected_status == 'all' %}aria-current="page"{% endif %}>All</a>
+    <a href="{{ url_for('jobs') }}?status=live" {% if selected_status == 'live' %}aria-current="page"{% endif %}>Open now</a>
+    <a href="{{ url_for('jobs') }}?status=expired" {% if selected_status == 'expired' %}aria-current="page"{% endif %}>Closed</a>
+    <a href="{{ url_for('jobs') }}?status=unreachable" {% if selected_status == 'unreachable' %}aria-current="page"{% endif %}>Needs a recheck</a>
+    <a href="{{ url_for('jobs') }}?status=needs_attention" {% if selected_status == 'needs_attention' %}aria-current="page"{% endif %}>Needs extraction</a>
+  </nav>
+  {% if opportunities %}
+    <form method="post" action="{{ url_for('jobs_bulk_delete') }}" data-selection-form data-delete-confirm data-delete-subject="selected jobs">
+      <input type="hidden" name="return_to" value="jobs">
+      <input type="hidden" name="confirm_delete" value="true">
+      <div class="selection-toolbar panel danger-toolbar">
+        <label class="switch-row"><input type="checkbox" data-select-all><span><strong>Select all visible</strong><small>Only jobs in the current Archive filter are selected.</small></span></label>
+        <span data-selection-count>0 selected</span>
+        <button class="danger-button" type="submit">Delete selected and free slots</button>
+      </div>
+      <div class="opportunity-grid opportunity-grid-wide" data-ranked-opportunity-surface="archive">
+        {% set selection_mode = true %}
+        {% for item in opportunities %}{% include "opportunity_card.html" %}{% endfor %}
+      </div>
+    </form>
+  {% else %}
+    <div class="panel empty-state wide"><span aria-hidden="true">○</span><h2>This archive is empty</h2><p>Try another filter, discover jobs in Explore, or add a verified reference in Match.</p><a class="primary-button" href="{{ url_for('explore') }}">Open Explore</a></div>
+  {% endif %}
+{% endblock %}

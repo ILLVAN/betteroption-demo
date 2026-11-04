@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Legal notice · WorkLifeBalance{% endblock %}
+{% block content %}
+  <header class="page-heading legal-heading">
+    <p class="eyebrow">Legal notice</p>
+    <h1>Service-provider information.</h1>
+    <p>This page deliberately fails visibly when the real operator information has not been configured.</p>
+  </header>
+
+  {% if not operator_details_complete %}
+    <div class="flash error" role="alert">Do not publish: mandatory operator identity, complete service address and public contact are missing.</div>
+  {% endif %}
+
+  <article class="panel legal-document">
+    <section>
+      <h2>Service provider</h2>
+      <p><strong>{{ operator_name or "[Legal name and legal form required]" }}</strong><br>{{ operator_address or "[Street, house number, postcode, city and country required]" }}</p>
+    </section>
+    <section>
+      <h2>Contact</h2>
+      <p>Email: {{ legal_contact_email or "[Public contact email required]" }}</p>
+    </section>
+    <section>
+      <h2>Additional mandatory facts</h2>
+      <p>Before publication, qualified counsel must determine and add any applicable authorised representative, commercial/association register and number, VAT identification, regulated-profession information, editorial responsibility and consumer dispute-resolution statement. These details cannot be inferred from the product or domain.</p>
+    </section>
+  </article>
+{% endblock %}

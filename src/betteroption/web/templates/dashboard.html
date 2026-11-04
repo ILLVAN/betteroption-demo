@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Home · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="hero" aria-labelledby="welcome-title">
+    <div>
+      <p class="eyebrow">Your working life, on your terms</p>
+      <h1 id="welcome-title">Welcome home.</h1>
+      <p class="hero-copy">A quiet place to understand what fits, protect your boundaries, and notice the opportunities worth your time.</p>
+    </div>
+    <div class="hero-orbit" aria-hidden="true"><span>{{ snapshot.live_count }}</span><small>open now</small></div>
+  </section>
+
+  {% if smart_action is defined and smart_action %}
+    {% set action_copy = smart_action['copy'] if smart_action['copy'] is defined and smart_action['copy'] is string else '' %}
+    <section class="panel primary-action-shell smart-home-action-shell" aria-labelledby="smart-action-title">
+      <div class="primary-action-tile smart-home-action">
+        <div class="primary-action-copy">
+          <p class="eyebrow">{{ smart_action['eyebrow'] }}</p>
+          <h2 id="smart-action-title">{{ smart_action['title'] }}</h2>
+          {% if action_copy %}<p>{{ action_copy }}</p>{% endif %}
+          {% if smart_action['progress_label'] %}<span class="smart-action-progress">{{ smart_action['progress_label'] }}</span>{% endif %}
+        </div>
+        <div class="primary-action-buttons">
+          {% if smart_action['secondary_url'] and smart_action['secondary_label'] %}<a class="secondary-button" href="{{ smart_action['secondary_url'] }}">{{ smart_action['secondary_label'] }}</a>{% endif %}
+          <a class="primary-button" href="{{ smart_action['primary_url'] }}">{{ smart_action['primary_label'] }} <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="dashboard-grid" aria-label="Your search at a glance">
+    <article class="panel compass-panel">
+      <div class="panel-heading">
+        <div><p class="eyebrow">Your compass</p><h2>What good work means to you</h2></div>
+        {% if snapshot.profile.available %}<span class="soft-status">{{ snapshot.profile.completed_sections }}/{{ snapshot.profile.total_sections }} sections</span>{% endif %}
+      </div>
+      {% if snapshot.profile.available %}
+        <div class="progress-track" aria-label="Profile completion"><span style="width: {{ (snapshot.profile.completed_sections / snapshot.profile.total_sections * 100)|round }}%"></span></div>
+        <div class="metric-row">
+          <a class="metric-link" href="{{ url_for('profile') }}"><strong>{{ snapshot.profile.must_haves }}</strong><span>Must-haves</span></a>
+          <a class="metric-link" href="{{ url_for('profile') }}"><strong>{{ snapshot.profile.preferences }}</strong><span>Preferences</span></a>
+          <a class="metric-link" href="{{ url_for('profile') }}"><strong>{{ snapshot.profile.exclusions }}</strong><span>Boundaries</span></a>
+        </div>
+        {% if snapshot.profile.pending_facts %}<p class="gentle-note">{{ snapshot.profile.pending_facts }} profile statement{% if snapshot.profile.pending_facts != 1 %}s are{% else %} is{% endif %} still waiting for your review.</p>{% endif %}
+      {% else %}
+        <div class="empty-state"><span aria-hidden="true">◎</span><h3>Your compass is ready to be drawn</h3><p>Talk naturally about what you want. Each structured statement becomes active immediately and stays easy to edit or remove.</p><a class="primary-button" href="{{ url_for('profile') }}">Start talking</a></div>
+      {% endif %}
+      {% if snapshot.profile.available %}<a class="text-link compass-home-link" href="{{ url_for('profile') }}">Open Compass →</a>{% endif %}
+    </article>
+
+    <article class="panel pulse-panel">
+      <div class="panel-heading"><div><p class="eyebrow">Opportunity pulse</p><h2>Your search is alive</h2></div></div>
+      <div class="pulse-list">
+        <div><span class="status-dot live"></span><strong>{{ snapshot.live_count }}</strong><span>Open now</span></div>
+        <div><span class="status-dot closed"></span><strong>{{ snapshot.closed_count }}</strong><span>Closed, kept for memory</span></div>
+        <div><span class="status-dot recheck"></span><strong>{{ snapshot.recheck_count }}</strong><span>Needs a recheck</span></div>
+      </div>
+      <a class="text-link" href="{{ url_for('jobs') }}">Open the archive <span aria-hidden="true">→</span></a>
+    </article>
+  </section>
+
+  <section class="section-block" aria-labelledby="current-opportunities">
+    <div class="section-heading"><div><p class="eyebrow">Worth your attention</p><h2 id="current-opportunities">Current opportunities</h2></div><a class="text-link" href="{{ url_for('jobs') }}">View all</a></div>
+    {% if current_opportunities %}
+      <div class="opportunity-carousel" data-opportunity-carousel>
+        <button class="carousel-control carousel-previous" type="button" data-carousel-previous aria-label="Show previous opportunities" hidden><span aria-hidden="true">←</span></button>
+        <div class="opportunity-carousel-viewport">
+          <div class="opportunity-grid opportunity-carousel-track" data-carousel-track data-ranked-opportunity-surface="home">
+            {% for item in current_opportunities %}
+              {% include "opportunity_card.html" %}
+            {% endfor %}
+          </div>
+        </div>
+        <button class="carousel-control carousel-next" type="button" data-carousel-next aria-label="Show next opportunities" hidden><span aria-hidden="true">→</span></button>
+        <p class="visually-hidden" data-carousel-status aria-live="polite"></p>
+      </div>
+    {% else %}
+      <div class="panel empty-state wide"><span aria-hidden="true">⌁</span><h3>No current opportunities yet</h3><p>Add a role you already found or explore public jobs, then create an evidence-backed result set.</p><a class="primary-button" href="{{ url_for('add_jobs') }}">Add a job</a></div>
+    {% endif %}
+  </section>
+{% endblock %}

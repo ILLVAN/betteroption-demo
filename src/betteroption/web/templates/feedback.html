@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Feedback · WorkLifeBalance{% endblock %}
+{% block content %}
+  <header class="page-heading feedback-heading">
+    <p class="eyebrow">Private-alpha feedback</p>
+    <h1>Help shape the next useful improvement.</h1>
+    <p>Share one clear observation, rough edge, or idea. Short and specific is perfect.</p>
+  </header>
+
+  <section class="feedback-layout">
+    <article class="panel feedback-form-card">
+      <div class="panel-heading">
+        <div><p class="eyebrow">Tell the team</p><h2>What did you notice?</h2></div>
+        <span class="soft-status">Private</span>
+      </div>
+      <div class="gentle-note feedback-privacy-note">
+        <strong>Keep it product-only.</strong>
+        <span>Do not paste job URLs, Compass or CV content, application text, provider diagnostics, secrets, or another person's information. Feedback is stored by WorkLifeBalance and is not sent to AI.</span>
+      </div>
+      <form class="stacked-form feedback-form" method="post" action="{{ url_for('product_feedback_submit') }}">
+        <div class="feedback-field-grid">
+          <label>
+            Topic
+            <select name="category" required>
+              <option value="experience">Overall experience</option>
+              <option value="accuracy">Accuracy or trust</option>
+              <option value="idea">Idea</option>
+              <option value="problem">Problem</option>
+              <option value="other">Something else</option>
+            </select>
+          </label>
+          <label>
+            Area
+            <select name="surface" required>
+              <option value="general">Across WorkLifeBalance</option>
+              <option value="compass">Compass</option>
+              <option value="add">Add</option>
+              <option value="explore">Explore</option>
+              <option value="matching">Matching</option>
+              <option value="apply">Apply</option>
+              <option value="archive">Archive</option>
+              <option value="account">Account</option>
+            </select>
+          </label>
+        </div>
+        <fieldset class="feedback-rating">
+          <legend>How did this part feel? <span>Optional</span></legend>
+          <div>
+            {% for value, label in [(1, 'Frustrating'), (2, 'Rough'), (3, 'Okay'), (4, 'Good'), (5, 'Great')] %}
+              <label><input type="radio" name="rating" value="{{ value }}"><span><strong>{{ value }}</strong>{{ label }}</span></label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <label>
+          Your observation or idea
+          <textarea name="message" rows="8" maxlength="{{ feedback_message_limit }}" placeholder="What happened, what did you expect, and what would have felt better?" required></textarea>
+          <span class="form-help">Up to {{ feedback_message_limit }} characters. You can delete your submission below at any time.</span>
+        </label>
+        <label class="legal-check feedback-contact-choice">
+          <input type="checkbox" name="contact_allowed" value="true">
+          <span>The private-alpha team may follow up at my account email about this feedback.</span>
+        </label>
+        <button class="primary-button" type="submit">Send feedback</button>
+      </form>
+    </article>
+
+    <aside class="panel feedback-side-card">
+      <p class="eyebrow">What happens next</p>
+      <h2>A human reviews it.</h2>
+      <ol class="privacy-list">
+        <li>The team reads your product feedback inside Operations.</li>
+        <li>It may be marked reviewed, planned, or resolved.</li>
+        <li>No feedback text enters prompts, model evaluation, analytics, or advertising.</li>
+      </ol>
+      <p class="form-help">Feedback expires 180 days after its last update and is removed immediately with your account or when you delete it here.</p>
+    </aside>
+  </section>
+
+  <section class="panel feedback-history" aria-labelledby="feedback-history-title">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Your submissions</p><h2 id="feedback-history-title">Feedback history</h2></div>
+      <span class="soft-status">{{ feedback_items|length }} saved</span>
+    </div>
+    {% if feedback_items %}
+      <div class="feedback-history-list">
+        {% for item in feedback_items %}
+          <article>
+            <div>
+              <span class="soft-status">{{ item.status.value|title }}</span>
+              <strong>{{ item.category.value|replace('_', ' ')|title }} · {{ item.surface.value|replace('_', ' ')|title }}</strong>
+              <small>{{ item.created_at.strftime('%d %b %Y, %H:%M') }} UTC{% if item.rating %} · {{ item.rating }}/5{% endif %}</small>
+            </div>
+            <p>{{ item.message }}</p>
+            <form method="post" action="{{ url_for('product_feedback_delete', feedback_id=item.id) }}">
+              <button class="text-button" type="submit">Delete</button>
+            </form>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="gentle-note">Nothing submitted yet. Your first note can be as small as one confusing label or one moment that felt unusually smooth.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Sign in · WorkLifeBalance{% endblock %}
+{% block content %}
+<section class="account-shell">
+  <div class="account-card">
+    <p class="eyebrow">Private workspace</p>
+    <h1>Welcome back.</h1>
+    <p>Your Compass, Archive, matches, and CV evidence stay inside your account workspace.</p>
+    <form method="post" action="{{ url_for('account_login_submit') }}" class="stacked-form">
+      <input type="hidden" name="next" value="{{ next_path }}">
+      <label for="account-email">Email</label>
+      <input id="account-email" name="email" type="email" autocomplete="email" required maxlength="254">
+      <label for="account-password">Password</label>
+      <input id="account-password" name="password" type="password" autocomplete="current-password" required maxlength="256">
+      <button class="primary-button" type="submit">Sign in</button>
+    </form>
+    {% if registration_available %}
+      <p class="account-footnote">New here? <a href="{{ url_for('account_register') }}">Create the private alpha account</a>.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

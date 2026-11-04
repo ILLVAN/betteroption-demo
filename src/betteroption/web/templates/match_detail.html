@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.item.stored.job.title }} · Matching · WorkLifeBalance{% endblock %}
+{% block content %}
+  {% set item = detail.item %}
+  <a class="back-link" href="{{ url_for('matches') }}">← Back to Matching</a>
+  <section class="detail-hero result-detail-hero">
+    <div>
+      <div class="card-topline"><span class="fit-label {{ item.stored.result.disposition.value }}">{{ item.disposition_label }}</span><span class="soft-status">{{ item.stored.result.score }}/100 compatibility</span></div>
+      <p class="company">{{ item.stored.job.company }}</p>
+      <h1>{{ item.stored.job.title }}</h1>
+      <p class="location">{{ item.stored.job.location }}</p>
+    </div>
+    {% if item.source_is_current %}<a class="primary-button" href="{{ item.stored.job.source_url }}" target="_blank" rel="noopener noreferrer">Open verified job page <span aria-hidden="true">↗</span></a>{% else %}<span class="gentle-note">The source has changed or closed since this result was created.</span>{% endif %}
+  </section>
+
+  <div class="detail-grid result-detail-grid">
+    <section class="panel" aria-labelledby="evidence-heading">
+      <p class="eyebrow">Traceable compatibility</p><h2 id="evidence-heading">Why it landed here</h2>
+      <p class="lead-copy">{{ item.stored.job.summary }}</p>
+      <div class="metric-row compact"><div><strong>{{ item.stored.result.score }}</strong><span>Compatibility</span></div><div><strong>{{ item.stored.result.hard_evidence_coverage }}%</strong><span>Boundary evidence</span></div><div><strong>{{ item.stored.result.matched_required_skills|length }}</strong><span>Skills evidenced</span></div></div>
+
+      {% if item.stored.result.commutes %}
+        <h3 class="subheading">Calculated commute</h3>
+        <div class="commute-grid">
+          {% for commute in item.stored.result.commutes %}
+            <article class="commute-evidence {{ commute|commute_state }}">
+              <div><strong>{{ commute.mode.value|title }}</strong><span>{{ commute.estimate.origin_resolved or commute.origin }} → {{ commute.estimate.destination_resolved or commute.destination }}</span></div>
+              {% if commute.estimate.duration_minutes %}<div class="route-duration"><strong>{{ commute.estimate.duration_minutes|duration }}</strong>{% if commute.estimate.duration_low_minutes and commute.estimate.duration_high_minutes and commute.estimate.duration_low_minutes != commute.estimate.duration_high_minutes %}<small class="route-duration-range">Range {{ commute.estimate.duration_low_minutes|duration }}–{{ commute.estimate.duration_high_minutes|duration }}</small>{% endif %}</div>{% else %}<strong>Unknown</strong>{% endif %}
+              <small>Limit {{ commute.maximum_minutes|duration }}{% if commute.estimate.distance_km is not none %} · {{ commute.estimate.distance_km }} km{% endif %} · {{ commute.estimate.confidence.value }} confidence · {{ commute.estimate.route_scope|replace('_', ' ') }} · {{ 'cached' if commute.cached else 'checked' }} via {{ commute.estimate.provider }}{% if commute.evaluated_destinations|length + commute.omitted_destination_count > 1 %} · checked {{ commute.evaluated_destinations|length }}{% if commute.omitted_destination_count %} of {{ commute.evaluated_destinations|length + commute.omitted_destination_count }}{% endif %} locations{% endif %}</small>
+              <small>Origin: {{ commute.estimate.origin_precision.value|replace('_', ' ') }} · Destination: {{ commute.estimate.destination_precision.value|replace('_', ' ') }}{% if commute.estimate.sample_minutes %} · Samples: {% for sample in commute.estimate.sample_minutes %}{{ sample|duration }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</small>
+              {% if commute.estimate.message %}<p>{{ commute.estimate.message }}</p>{% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if item.why_still_apply %}<div class="why-apply"><p class="eyebrow">Why still apply?</p><p>{{ item.why_still_apply }}</p></div>{% endif %}
+
+      <h3 class="subheading">Compass checks</h3>
+      {% if item.stored.result.reasons %}<ul class="evidence-list">{% for reason in item.stored.result.reasons %}<li class="{{ reason.outcome.value }}"><strong>{{ reason.profile_value }}</strong><span>{{ reason.explanation }}</span>{% for quote in reason.evidence_quotes %}<blockquote>“{{ quote }}”</blockquote>{% endfor %}</li>{% endfor %}</ul>{% else %}<p class="gentle-note">No confirmed search statement produced a comparable advertisement fact.</p>{% endif %}
+
+      <div class="skill-grid">
+        <div><h3>Required skills evidenced</h3>{% if item.stored.result.matched_required_skills %}<ul>{% for skill in item.stored.result.matched_required_skills %}<li>{{ skill }}</li>{% endfor %}</ul>{% else %}<p>None explicitly evidenced from your confirmed experience yet.</p>{% endif %}</div>
+        <div><h3>Required skills not evidenced</h3>{% if item.stored.result.missing_required_skills %}<ul>{% for skill in item.stored.result.missing_required_skills %}<li>{{ skill }}</li>{% endfor %}</ul>{% else %}<p>No advertised required skill is currently missing from the evidence.</p>{% endif %}</div>
+      </div>
+    </section>
+
+    <aside class="result-actions">
+      <section class="panel">
+        <p class="eyebrow">Your signal</p><h2>How does this opportunity feel?</h2>
+        <p class="action-copy">Record a broad reaction, then optionally explain the specific responsibilities, level, company, schedule, pay, or context that shaped it.</p>
+        <form class="stacked-form" method="post" action="{{ url_for('match_feedback', run_id=detail.groups.run.id, record_id=item.record.id) }}">
+          <label for="feedback">Your reaction</label>
+          <select id="feedback" name="feedback" required>{% for state, label in feedback_labels.items() %}<option value="{{ state.value }}" {% if item.interaction and item.interaction.feedback == state %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+          <label for="feedback-note">What influenced you? <small>Optional free text</small></label>
+          <textarea id="feedback-note" name="note" rows="4" maxlength="5000" placeholder="For example: the responsibilities appeal to me, but the schedule or company context does not.">{{ item.interaction.note if item.interaction and item.interaction.note else '' }}</textarea>
+          <label class="switch-row"><input type="checkbox" name="teach_compass" value="true" checked><span><strong>Teach my Compass</strong><small>Adds this as an editable preference.</small></span></label>
+          <button class="primary-button" type="submit">Save feedback</button>
+        </form>
+      </section>
+      <section class="panel">
+        <p class="eyebrow">Application</p><h2>Keep your place</h2>
+        <form class="stacked-form" method="post" action="{{ url_for('match_application', run_id=detail.groups.run.id, record_id=item.record.id) }}">
+          <label for="application-state">Current state</label>
+          <select id="application-state" name="application_state">{% for state, label in application_labels.items() %}<option value="{{ state.value }}" {% if item.interaction and item.interaction.application_state == state %}selected{% elif not item.interaction and state.value == 'discovered' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+          <button class="secondary-button" type="submit">Update state</button>
+        </form>
+        {% if detail.events %}<details><summary>Decision history</summary><ol class="history-list">{% for event in detail.events|reverse %}<li><strong>{{ event.kind.value|title }} · {{ application_event_labels.get(event.value, event.value|replace('_', ' ')|title) }}</strong><span>{{ event.created_at.astimezone().strftime('%d %b %Y, %H:%M') }}</span>{% if event.note %}<small>{{ event.note }}</small>{% endif %}</li>{% endfor %}</ol></details>{% endif %}
+      </section>
+    </aside>
+  </div>
+{% endblock %}

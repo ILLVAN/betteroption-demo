@@ -1,0 +1,48 @@
+{% set current_application_state = item.application_state.value if item.application_state else 'discovered' %}
+{% set draft_count = draft_counts.get(item.record_id, 0) if draft_counts is defined else 0 %}
+{% set job_rating = job_ratings.get(item.record_id) if job_ratings is defined else none %}
+{% set employer_rating = employer_ratings_by_record.get(item.record_id) if employer_ratings_by_record is defined else none %}
+{% set employer_rating_available = employer_rating_available_by_record.get(item.record_id, false) if employer_rating_available_by_record is defined else false %}
+{% set rating_employer_name = employer_names_by_record.get(item.record_id, item.company) if employer_names_by_record is defined else item.company %}
+{% set rating_employer_key = employer_keys_by_record.get(item.record_id, rating_employer_name) if employer_keys_by_record is defined else rating_employer_name %}
+{% set display_location = item.display_location if item.display_location is defined else item.location %}
+{% set remote_only = item.remote_only if item.remote_only is defined else false %}
+<article class="opportunity-card{% if selection_mode %} selectable-card{% endif %}" data-opportunity-card data-opportunity-record-id="{{ item.record_id }}" data-card-score="{{ item.score if item.score is not none else '' }}" data-card-disposition="{{ item.disposition.value if item.disposition else '' }}" data-application-state-card="{{ current_application_state }}" data-posting-freshness="{{ item.posting_freshness.value }}">
+  <a class="card-body-link card-link" href="{{ url_for('job_detail', record_id=item.record_id) }}" aria-label="Open {{ item.title }} at {{ rating_employer_name }}">
+  <div class="card-topline">
+    <span class="card-status-cluster">
+      <span class="availability {{ item.availability.value }}"><span aria-hidden="true"></span>{{ item.availability_label }}</span>
+      {% if remote_only %}<span class="remote-only-badge">Remote</span>{% endif %}
+      {% if item.posting_freshness.value == 'fresh' %}<span class="posting-age-badge fresh" title="The known posting date is less than one month old"><span aria-hidden="true">✦</span> Fresh</span>{% elif item.posting_freshness.value == 'old' %}<span class="posting-age-badge old" title="The known posting date is more than four months old"><span aria-hidden="true">◷</span> Old</span>{% endif %}
+    </span>
+    {% if item.disposition_label %}<span class="fit-label {{ item.disposition.value }}" data-card-disposition-label>{{ item.disposition_label }}</span>{% endif %}
+  </div>
+  <div>
+    <p class="company">{{ rating_employer_name }}</p>
+    <h3>{{ item.title }}</h3>
+    <p class="location">{{ display_location }}</p>
+  </div>
+  <p class="card-summary">{{ item.summary }}</p>
+  <div class="card-footer">
+    {% if item.score is not none %}<span><strong data-card-score>{{ item.score }}</strong>/100 compatibility</span>{% elif item.is_extracted %}<span>Not matched yet</span>{% else %}<span>No job details yet</span>{% endif %}
+    <span>{{ 'Saved' if item.source_is_manual else 'Checked' }} {{ item.last_checked_label }}</span>
+  </div>
+</a>
+{% if current_persona %}{% set rating_record_id = item.record_id %}{% set rating_job_title = item.title %}{% set compact_include_employer = true %}{% include "job_rating_control.html" %}{% endif %}
+{% if selection_mode and item.application_state %}
+<div class="card-actions-row">
+  <label class="card-selector delete-selector"><input type="checkbox" name="record_ids" value="{{ item.record_id }}" data-select-item><span>Delete job</span></label>
+  {% if draft_count %}<a class="card-draft-link" href="{{ url_for('apply') }}?job={{ item.record_id }}">{{ draft_count }} Cover Letter{{ '' if draft_count == 1 else 's' }}</a>{% endif %}
+  <div class="card-application-control">
+  <label>
+    <span>State</span>
+    <select data-application-state data-current-state="{{ current_application_state }}" data-state-url="{{ url_for('job_application_state', record_id=item.record_id) }}" aria-label="Application state for {{ item.title }}">
+      {% for state, label in application_labels.items() %}<option value="{{ state.value }}" {% if state.value == current_application_state %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <small data-application-state-status aria-live="polite"></small>
+  </div>
+</div>
+{% endif %}
+{% if selection_mode and not item.application_state %}<label class="card-selector delete-selector"><input type="checkbox" name="record_ids" value="{{ item.record_id }}" data-select-item><span>Delete job</span></label>{% endif %}
+</article>

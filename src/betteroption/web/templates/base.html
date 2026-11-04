@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A calmer, evidence-backed path to better work.">
+    <meta name="theme-color" content="#f4f0e8">
+    <title>{% block title %}WorkLifeBalance{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}?v={{ app_version }}">
+    <script src="{{ url_for('static', path='/app.js') }}?v={{ app_version }}" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="app-shell">
+      <header class="site-header">
+        <a class="brand" href="{{ url_for('home') }}" aria-label="WorkLifeBalance home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" focusable="false">
+              <circle class="brand-halo" cx="24" cy="24" r="22"/>
+              <path class="brand-wave brand-wave-pink" d="M7 26c4-9 10-13 17-13 7 0 12 3 17 9-5-2-9-2-13 1-6 4-11 7-21 3Z"/>
+              <path class="brand-wave brand-wave-teal" d="M8 29c7 4 13 4 20-1 5-4 9-4 13-2-3 9-10 15-19 15-7 0-12-4-14-12Z"/>
+              <circle class="brand-spark" cx="37" cy="11" r="3"/>
+              <path class="brand-w" d="m14 18 4.5 15L24 23l5.5 10L34 18"/>
+            </svg>
+          </span>
+          <span><strong>WorkLifeBalance</strong></span>
+        </a>
+        {% if auth_mode != "accounts" or current_account %}
+          <nav class="primary-nav" aria-label="Primary navigation">
+            <a href="{{ url_for('home') }}" {% if active_page == 'home' %}aria-current="page"{% endif %}>Home</a>
+            <a href="{{ url_for('profile') }}" {% if active_page == 'profile' %}aria-current="page"{% endif %}>Compass</a>
+            <a href="{{ url_for('add_jobs') }}" {% if active_page == 'add' %}aria-current="page"{% endif %}>Add</a>
+            <a href="{{ url_for('explore') }}" {% if active_page == 'explore' %}aria-current="page"{% endif %}>Explore</a>
+            <a href="{{ url_for('matches') }}" {% if active_page == 'matches' %}aria-current="page"{% endif %}>Match</a>
+            <a href="{{ url_for('apply') }}" {% if active_page == 'apply' %}aria-current="page"{% endif %}>Apply</a>
+            <a href="{{ url_for('jobs') }}" {% if active_page == 'jobs' %}aria-current="page"{% endif %}>Archive</a>
+          </nav>
+        {% endif %}
+        {% if auth_mode == "accounts" and current_account %}
+          <a
+            class="account-chip"
+            href="{{ url_for('account') }}"
+            {% if active_page == 'account' %}aria-current="page"{% endif %}
+          >{{ current_account.display_name }}</a>
+          {% if personas_enabled and current_persona %}<a class="account-chip" href="{{ url_for('personas') }}" {% if active_page == 'personas' %}aria-current="page"{% endif %}>Persona: {{ current_persona.name }}</a>{% endif %}
+          <form class="header-logout" method="post" action="{{ url_for('logout') }}">
+            <button type="submit">Sign out</button>
+          </form>
+        {% elif auth_mode == "local" %}
+          <span class="local-badge">Private alpha</span>
+        {% else %}
+          <span class="local-badge">Private account</span>
+        {% endif %}
+      </header>
+      <div class="toast-region" aria-live="polite" aria-atomic="true">
+        {% if notice %}<div class="flash notice toast-message" role="status" data-toast>{{ notice }}</div>{% endif %}
+        {% if error %}<div class="flash error toast-message" role="alert" data-toast data-toast-persistent>{{ error }}</div>{% endif %}
+      </div>
+      <main id="main-content" tabindex="-1">
+        {% block content %}{% endblock %}
+      </main>
+      <footer class="site-footer">
+        <span>WorkLifeBalance v{{ app_version }} · Private workspace{% if auth_mode == 'accounts' and current_account %} · <a href="{{ url_for('product_feedback') }}">Feedback</a>{% endif %} · <a href="{{ url_for('imprint') }}">Legal</a> · <a href="{{ url_for('privacy_notice') }}">Privacy</a> · <a href="{{ url_for('terms') }}">Terms</a> · <a href="{{ url_for('ai_notice') }}">AI</a> · <a href="{{ url_for('storage_notice') }}">Storage</a></span>
+      </footer>
+    </div>
+    <div class="busy-overlay" data-busy-overlay hidden>
+      <section class="busy-dialog" role="status" aria-live="assertive" aria-atomic="true">
+        <span class="busy-spinner" aria-hidden="true"></span>
+        <p class="eyebrow">Working carefully</p>
+        <h2 data-busy-title>Please give us a moment.</h2>
+        <p data-busy-copy>The page will continue automatically. You do not need to submit again.</p>
+        <span class="busy-progress" aria-hidden="true"><span></span></span>
+      </section>
+    </div>
+    <dialog class="confirm-dialog" data-delete-dialog aria-labelledby="delete-dialog-title">
+      <form method="dialog" class="confirm-dialog-card">
+        <span class="confirm-dialog-mark" aria-hidden="true">!</span>
+        <p class="eyebrow">Permanent deletion</p>
+        <h2 id="delete-dialog-title">Delete the selected job data?</h2>
+        <p data-delete-dialog-copy>This removes the selected jobs, source copies, references, and match history. The freed slots can be used again.</p>
+        <div class="inline-actions confirm-dialog-actions">
+          <button class="secondary-button" type="submit" value="cancel">Keep jobs</button>
+          <button class="danger-button" type="submit" value="confirm" data-delete-dialog-confirm>Delete permanently</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

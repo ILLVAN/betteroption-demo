@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }} · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="auth-shell">
+    <article class="panel auth-card one-time-link-card">
+      <p class="eyebrow">Operator-only secret</p>
+      <h1>{{ heading }}</h1>
+      <p class="hero-copy">{{ description }}</p>
+      <p class="gentle-note"><strong>This is the only time WorkLifeBalance displays the secret.</strong> Send it through a trusted channel. Do not paste it into tickets, analytics, or server logs.</p>
+      <label>
+        One-time {{ kind }} link
+        <textarea rows="5" readonly data-copy-value>{{ one_time_link }}</textarea>
+      </label>
+      <button class="primary-button" type="button" data-copy-button>Copy link</button>
+      <p class="form-help" data-copy-status aria-live="polite"></p>
+      <p class="auth-switch"><a class="text-link" href="{{ back_url }}">Return to account access</a>.</p>
+    </article>
+  </section>
+{% endblock %}

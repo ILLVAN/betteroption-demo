@@ -1,0 +1,23 @@
+{% if compass_integrity_issue %}
+  <section id="compass-integrity-notice" class="panel compass-integrity-notice compass-integrity-{{ compass_integrity_issue.severity.value }}{% if compass_integrity_blocked_here %} is-blocking-here{% endif %}" {% if compass_integrity_blocked_here %}role="alert"{% else %}aria-label="Compass check"{% endif %}>
+    <div class="compass-integrity-copy">
+      <p class="eyebrow">{{ 'Compass needs one decision' if compass_integrity_blocked_here else ('Compass check' if compass_integrity_issue.severity.value != 'info' else 'Compass note') }}</p>
+      <h2>{{ compass_integrity_issue.title }}</h2>
+      <p>{{ compass_integrity_issue.explanation }}</p>
+      {% if compass_integrity_blocked_here and compass_integrity_action == 'explore_compass' %}<p class="compass-integrity-page-note">Your own search phrase still works. Only search from Compass waits for this decision.</p>{% endif %}
+      {% if not compass_integrity_blocked_here and compass_integrity_issue.severity.value == 'blocking' %}<p class="compass-integrity-page-note">You can keep using this page. Compass-based search, Matching, and new draft generation wait only where this point matters.</p>{% endif %}
+    </div>
+    <div class="compass-integrity-actions">
+      <a class="{{ 'primary-button' if compass_integrity_blocked_here else 'secondary-button' }}" href="{{ compass_integrity_fix_url }}">Review in Compass</a>
+      {% if compass_integrity_issue.suggest_second_persona and compass_integrity_can_create_persona %}<a class="secondary-button" href="{{ url_for('personas') }}#new-persona">Create a second persona</a>{% endif %}
+      {% if compass_integrity.issues|length > 1 %}
+        <details class="compass-integrity-more">
+          <summary>{{ compass_integrity.issues|length - 1 }} more Compass point{% if compass_integrity.issues|length != 2 %}s{% endif %}</summary>
+          <ul>
+            {% for issue in compass_integrity.issues %}{% if issue.code != compass_integrity_issue.code %}<li><strong>{{ issue.title }}</strong><span>{{ issue.explanation }}</span></li>{% endif %}{% endfor %}
+          </ul>
+        </details>
+      {% endif %}
+    </div>
+  </section>
+{% endif %}

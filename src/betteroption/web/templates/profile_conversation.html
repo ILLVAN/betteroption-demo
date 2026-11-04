@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Your compass · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="conversation-layout">
+    <aside class="conversation-progress guided-sidebar">
+      <p class="eyebrow">Your compass</p>
+      <strong>{{ workspace.session.completed_count }}/{{ workspace.session.sections|length }}</strong>
+      <span>conversations complete</span>
+      <div class="progress-track" aria-label="Profile completion"><span style="width: {{ progress_percent }}%"></span></div>
+      <div class="panel primary-action-shell guided-action-shell guided-sidebar-card">
+        <a class="guided-edit-answers primary-action-tile" href="{{ url_for('profile') }}"><span><small>Edit anytime</small><strong>Edit your answers</strong></span><span aria-hidden="true">→</span></a>
+        <details class="profile-reset guided-sidebar-reset">
+          <summary>Start a new compass</summary>
+          <p>This stops using the current compass and begins all nine conversations again.</p>
+          <form method="post" action="{{ url_for('profile_start') }}">
+            <label class="switch-row"><input type="checkbox" name="confirm_restart" value="true" required><span><strong>I understand this replaces my active compass</strong><small>The current checkpoint remains stored for safety but is no longer used for matching.</small></span></label>
+            <button class="quiet-button" type="submit">Start from scratch</button>
+          </form>
+        </details>
+      </div>
+    </aside>
+    <div class="conversation-card">
+      <details class="panel gentle-note compact-page-help" aria-label="Answer processing notice">
+        <summary>Before you answer: review how this works</summary>
+        <div>
+          <p>Your answer is sent to the configured OpenAI API to propose editable Compass statements. If that request is unavailable, your wording is still saved locally as a direct editable statement and the page explains how to repair the configuration.</p>
+          <p>Do not enter health/disability, ethnicity, religion, politics, union, sexual, biometric/genetic or criminal-offence information. Only your confirmed statements drive recommendations, and employers never receive them. <a class="text-link" href="{{ url_for('ai_notice') }}" target="_blank" rel="noopener">How AI and retention work</a>.</p>
+        </div>
+      </details>
+      <div class="message-stream" aria-live="polite">
+        {% for message in messages %}
+          <article class="message {{ message.role.value }}">
+            <span>{{ 'You' if message.role.value == 'user' else 'WorkLifeBalance' }}</span>
+            <p>{{ message.content }}</p>
+          </article>
+        {% endfor %}
+      </div>
+      {% if definition %}
+        <form class="composer" method="post" action="{{ url_for('profile_answer', workspace_id=workspace.id) }}">
+          <label for="answer"><strong>{{ 'One point to clarify' if clarification_question else definition.title }}</strong><span>{{ clarification_question or definition.guidance }}</span></label>
+          <textarea id="answer" name="answer" rows="5" maxlength="20000" required placeholder="{{ 'Answer in your own words.' if clarification_question else definition.example }}" data-autogrow></textarea>
+          <div class="suggestion-chips" aria-label="Ideas you can add with Tab and Enter">{% for suggestion in definition.suggestions %}<button type="button" data-suggestion-target="answer" data-suggestion-text="{{ suggestion }}">{{ suggestion }}</button>{% endfor %}</div>
+          <div class="composer-actions">
+            <button class="secondary-button" type="submit" formaction="{{ url_for('profile_skip', workspace_id=workspace.id) }}" formnovalidate>{{ 'Leave this open' if clarification_question else 'Ask me later' }}</button>
+            <button class="primary-button" type="submit" data-busy-message="Understanding this answer and updating your Compass…">Understand this <span aria-hidden="true">→</span></button>
+          </div>
+        </form>
+      {% elif ready_with_skips %}
+        <div class="completion-card"><p class="eyebrow">Paused, not lost</p><h2>Your answered sections are safe. Some questions are still waiting.</h2><form method="post" action="{{ url_for('profile_revisit_skipped', workspace_id=workspace.id) }}"><button class="primary-button" type="submit">Revisit skipped questions</button></form></div>
+      {% else %}
+        <div class="completion-card compass-ready">
+          <p class="eyebrow">Compass ready</p>
+          <h2>You have given the search something real to work with.</h2>
+          <p>Your nine conversations are complete. Add job URLs and all reference settings in one place, then run matching.</p>
+          <div class="inline-actions"><a class="secondary-button" href="{{ url_for('profile_conversation', workspace_id=workspace.id) }}">Review Compass</a><a class="primary-button" href="{{ url_for('matches') }}">Open Matching <span aria-hidden="true">→</span></a></div>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Reference jobs · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="page-heading"><p class="eyebrow">Reference jobs</p><h1>Show us what resonates—and what does not.</h1><p class="hero-copy">Only a verified URL is accepted. Learning stays off unless you explicitly enable it.</p></section>
+  <div class="split-layout">
+    <form class="panel form-panel" method="post" action="{{ url_for('profile_reference_add', workspace_id=workspace.id) }}">
+      <label>Job URL<input type="url" name="url" required maxlength="2000" placeholder="https://company.example/jobs/123"></label>
+      <label>What appeals to you?<textarea name="positives" rows="4" placeholder="One point per line"></textarea></label>
+      <label>What does not fit?<textarea name="negatives" rows="4" placeholder="One point per line"></textarea></label>
+      <label class="switch-row"><input type="checkbox" name="learning_enabled" value="true"><span><strong>Allow later profile learning from this reference</strong><small>The preference is stored now; reference-derived proposals arrive with the opportunity workflow and will still require review.</small></span></label>
+      <fieldset><legend>Allowed learning scope</legend><div class="chip-checks">{% for scope in ['role','skills','culture','location','work_model','pay'] %}<label><input type="checkbox" name="learning_scope" value="{{ scope }}">{{ scope|replace('_',' ')|title }}</label>{% endfor %}</div></fieldset>
+      <button class="primary-button" type="submit">Verify and save URL</button>
+    </form>
+    <section><h2>Saved references</h2>{% if workspace.session.profile.reference_jobs %}<div class="reference-list">{% for reference in workspace.session.profile.reference_jobs %}<article class="panel reference-card"><a href="{{ reference.resolved_url }}" target="_blank" rel="noopener noreferrer">{{ reference.resolved_url }}</a><span class="availability live"><span></span>Verified · HTTP {{ reference.url_http_status }}</span>{% if reference.positives %}<h3>Appeals</h3><ul>{% for item in reference.positives %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}{% if reference.negatives %}<h3>Does not fit</h3><ul>{% for item in reference.negatives %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}<p>{{ 'Learning enabled' if reference.learning_enabled else 'Learning off' }}</p><form method="post" action="{{ url_for('profile_reference_delete', workspace_id=workspace.id, reference_id=reference.id) }}"><button class="quiet-button" type="submit">Remove</button></form></article>{% endfor %}</div>{% else %}<div class="empty-state panel"><h3>No references yet</h3><p>This is optional. Your free-text compass remains the primary input.</p></div>{% endif %}</section>
+  </div>
+{% endblock %}

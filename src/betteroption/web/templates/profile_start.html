@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Build your compass · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="conversation-intro">
+    <p class="eyebrow">No keyword maze</p>
+    <h1>Tell us what a good working life actually means to you.</h1>
+    <p class="hero-copy">Nine focused conversations turn your language into an editable compass. Your answers become active immediately and every interpretation remains easy to edit or remove. If AI structuring is unavailable, your original wording is still saved locally.</p>
+    <form class="composer profile-opening" method="post" action="{{ url_for('profile_start') }}">
+      <label for="opening-answer"><strong>What are you looking for?</strong><span>Start naturally with target roles, seniority, hands-on tasks, technologies, or industries. You can edit every interpreted statement later.</span></label>
+      <textarea id="opening-answer" name="answer" rows="5" maxlength="20000" placeholder="{{ opening_definition.example }}" data-autogrow></textarea>
+      <div class="suggestion-chips" aria-label="Ideas you can add with Tab and Enter">{% for suggestion in opening_definition.suggestions %}<button type="button" data-suggestion-target="opening-answer" data-suggestion-text="{{ suggestion }}">{{ suggestion }}</button>{% endfor %}</div>
+      <div class="composer-actions">
+        <button class="secondary-button" type="submit" formnovalidate>Guide me from the first question</button>
+        <button class="primary-button" type="submit" data-busy-message="Understanding your first answer and starting your Compass…">Start with this answer <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

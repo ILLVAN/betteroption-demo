@@ -1,0 +1,27 @@
+{
+  "id": "00000000-0000-4000-8000-000000000101",
+  "title": "Embedded Prototyping Engineer",
+  "company": "MainWorks Automation",
+  "location": "Frankfurt am Main",
+  "summary": "Embedded product-development role focused on prototypes and industrial automation.",
+  "source_type": "sample",
+  "source_name": "embedded_prototyping.json",
+  "source_text": "MainWorks Automation is hiring an Embedded Prototyping Engineer in Frankfurt am Main. You will build embedded prototypes and develop industrial automation products from concept to field test. Strong C++ and practical Python experience are required. We offer a direct permanent contract, hybrid remote work with two office days per week, 35 to 40 hours per week, a collective agreement, and EUR 60,000 to 75,000 gross per year. There is no shift work. The team uses direct feedback and AI-assisted development tools.",
+  "facts": [
+    {"key": "role.family", "value": "embedded software", "kind": "context", "evidence_quote": "Embedded Prototyping Engineer"},
+    {"key": "role.responsibility", "value": "prototyping", "kind": "requirement", "evidence_quote": "build embedded prototypes"},
+    {"key": "role.responsibility", "value": "product development", "kind": "requirement", "evidence_quote": "develop industrial automation products"},
+    {"key": "skill.name", "value": "C++", "kind": "requirement", "evidence_quote": "Strong C++"},
+    {"key": "skill.name", "value": "Python", "kind": "requirement", "evidence_quote": "practical Python experience"},
+    {"key": "industry.sector", "value": "industrial automation", "kind": "context", "evidence_quote": "industrial automation products"},
+    {"key": "employment.arrangement", "value": "Direct contract with the employer", "kind": "offer", "evidence_quote": "direct permanent contract"},
+    {"key": "work_model.remote", "value": "hybrid remote", "kind": "offer", "evidence_quote": "hybrid remote work"},
+    {"key": "work_model.office_days", "value": "2 days per week", "kind": "offer", "evidence_quote": "two office days per week"},
+    {"key": "work_model.weekly_hours", "value": "35 to 40 hours", "kind": "offer", "evidence_quote": "35 to 40 hours per week"},
+    {"key": "contract.collective_agreement", "value": "collective agreement", "kind": "offer", "evidence_quote": "a collective agreement"},
+    {"key": "compensation.annual_gross", "value": "EUR 60,000 to 75,000", "kind": "offer", "evidence_quote": "EUR 60,000 to 75,000 gross per year"},
+    {"key": "work_model.shift_work", "value": "No shift work", "kind": "offer", "evidence_quote": "no shift work"},
+    {"key": "feedback.style", "value": "Direct feedback", "kind": "context", "evidence_quote": "direct feedback"},
+    {"key": "skill.name", "value": "AI-assisted development tools", "kind": "context", "evidence_quote": "AI-assisted development tools"}
+  ]
+}

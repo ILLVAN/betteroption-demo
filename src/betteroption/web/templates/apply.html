@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Apply · WorkLifeBalance{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">Candidate-controlled application workshop</p>
+    <h1>Turn a strong match into a precise first draft.</h1>
+    <p>Choose current matches and create editable drafts. Nothing is submitted automatically.</p>
+    <details class="compact-page-help"><summary>What can be sent for a draft</summary><div><p>WorkLifeBalance sends only selected public job evidence and relevant confirmed Compass facts—never raw, pending, rejected, contact, or exact home-location data.</p></div></details>
+  </header>
+
+  {% include "compass_integrity_notice.html" %}
+
+  {% if not workspace %}
+    <section class="panel empty-state wide"><h2>Create a persona Compass first</h2><p>Cover letters need confirmed candidate evidence and a current Match run.</p><a class="primary-button" href="{{ url_for('profile') }}">Build Compass</a></section>
+  {% elif not groups %}
+    <section class="panel empty-state wide"><h2>No matched jobs yet</h2><p>Run Match first. Apply deliberately excludes jobs that have not been compared with this persona’s confirmed Compass.</p><a class="primary-button" href="{{ url_for('matches') }}">Go to Match</a></section>
+  {% else %}
+    {% if not groups.profile_is_current %}<p class="flash notice">Your Compass changed after this Match. Drafts use its latest confirmed facts; the displayed compatibility score stays unchanged until you run Match again.</p>{% endif %}
+    <form class="panel apply-picker" method="post" action="{{ url_for('application_generate') }}" data-busy-message="Writing grounded cover letters from the selected job evidence and confirmed Compass facts…"{% if creation_focus and focused_job_id %} data-generation-focus="{{ focused_job_id }}"{% endif %} aria-labelledby="apply-picker-heading">
+      <div class="apply-selection-disclosure">
+      <div class="panel-heading apply-picker-heading"><div><p class="eyebrow">Choose matched jobs</p><h2 id="apply-picker-heading">Generate up to {{ batch_limit }} cover letters at once</h2></div><span class="soft-status">Top and Stretch only</span></div>
+      {% if candidates %}
+        <div class="apply-candidate-list" role="group" aria-label="Matched jobs available for cover-letter generation" tabindex="0">
+          {% for candidate in candidates %}
+            {% set item = candidate.item %}
+            <label class="apply-candidate{% if not candidate.eligible %} is-disabled{% endif %}">
+              <input type="checkbox" name="record_ids" value="{{ item.record.id }}" {% if candidate.selected and candidate.eligible %}checked{% endif %} {% if not candidate.eligible %}disabled{% endif %}>
+              <span class="apply-candidate-copy"><strong>{{ item.stored.job.title }}</strong><small>{{ candidate.employer_name }} · {{ item.display_location }}{% if item.remote_only %} · Remote{% endif %} · {{ item.disposition_label }} · {{ candidate.draft_count }}/{{ max_drafts_per_job }} drafts{% if candidate.draft_count >= max_drafts_per_job %} · delete one to create another{% endif %}</small></span>
+            </label>
+          {% endfor %}
+        </div>
+        <div class="apply-consent-zone">
+          <div class="apply-consent-heading">
+            <p class="eyebrow">Your controlled action</p>
+            <h3>Generate selected drafts</h3>
+          </div>
+          <label class="legal-check"><input type="checkbox" name="confirm_ai_processing" value="true" required><span>I ask WorkLifeBalance to send the selected public job evidence and minimized confirmed Compass facts to OpenAI once to create these drafts.</span></label>
+          <details class="compact-page-help"><summary>What generation does—and never does</summary><div><p>Generation never applies to a job, emails an employer, or changes a Compass fact. Blocked jobs and jobs whose source changed or closed remain unavailable.</p></div></details>
+          <button class="primary-button" type="submit"{% if application_generation_allowed is defined and not application_generation_allowed %} disabled aria-disabled="true" title="Review the Compass point above first"{% endif %}>Create selected cover letters <span aria-hidden="true">→</span></button>
+        </div>
+      {% else %}
+        <div class="empty-state"><h3>No eligible Top or Stretch job</h3><p>Refresh sources and run Match again, or add another role.</p></div>
+      {% endif %}
+      </div>
+    </form>
+
+    <section class="section-block" aria-labelledby="drafts-heading">
+      <div class="section-heading"><div><p class="eyebrow">Local editable results</p><h2 id="drafts-heading">Cover letters by job</h2></div><span class="soft-status">{{ draft_total }}</span></div>
+      {% if draft_groups %}
+        <div class="application-draft-list">
+          {% for group in draft_groups %}
+            <details class="panel application-job-group{% if group.selected %} is-selected{% endif %}" name="cover-letter-jobs" data-job-draft-group="{{ group.job_record_id }}" {% if group.selected %}open{% endif %}>
+              <summary class="panel-heading">
+                <div><p class="eyebrow">{{ group.employer_name }}</p><h3>{{ group.detail.card.title }}</h3></div>
+                <span class="soft-status">{{ group.drafts|length }} Cover Letter{{ '' if group.drafts|length == 1 else 's' }}</span>
+              </summary>
+              <div class="application-job-drafts">
+              {% for draft in group.drafts %}
+                <details class="application-draft{% if draft.id == group.selected_draft_id %} is-selected{% endif %}" name="cover-letter-drafts-{{ group.job_record_id }}" id="draft-{{ draft.id }}" data-draft-id="{{ draft.id }}" {% if draft.id == group.selected_draft_id %}open{% endif %}>
+                  <summary class="panel-heading">
+                    <div><p class="eyebrow">Slot {{ draft.slot }}</p><h3>{{ draft.name }}</h3><small>Updated {{ draft.updated_at.astimezone().strftime('%d %b %Y, %H:%M') }}{% if draft.manually_edited %} · edited by you{% endif %}</small></div>
+                  </summary>
+                  <a class="text-link draft-job-link" href="{{ url_for('job_detail', record_id=draft.job_record_id) }}">Job details</a>
+                  <form class="stacked-form" method="post" action="{{ url_for('application_save', record_id=draft.job_record_id) }}" data-preserve-scroll>
+                    <input type="hidden" name="draft_id" value="{{ draft.id }}">
+                    <label>Draft name<input name="name" value="{{ draft.name }}" required maxlength="{{ max_draft_name_length }}"></label>
+                    <label>Editable cover letter<textarea name="content" rows="16" required maxlength="{{ max_draft_length }}">{{ draft.content }}</textarea></label>
+                    <button class="primary-button" type="submit">Save name and edits</button>
+                  </form>
+                  <form class="draft-transform-actions" method="post" action="{{ url_for('application_transform', record_id=draft.job_record_id) }}" data-busy-message="Reworking this draft without inventing new candidate evidence…">
+                    <input type="hidden" name="draft_id" value="{{ draft.id }}">
+                    <label class="legal-check"><input type="checkbox" name="confirm_ai_processing" value="true" required{% if application_generation_allowed is defined and not application_generation_allowed %} disabled aria-disabled="true"{% endif %}><span>Send this draft plus the same minimized evidence to OpenAI once for the selected rewrite.</span></label>
+                    {% if application_generation_allowed is defined and not application_generation_allowed %}<p class="gentle-note">Review the Compass point above before asking AI to rewrite this draft. Manual edits, saving, and deletion remain available.</p>{% endif %}
+                    <div class="inline-actions">
+                      <button class="secondary-button" type="submit" name="action" value="shorter"{% if application_generation_allowed is defined and not application_generation_allowed %} disabled aria-disabled="true"{% endif %}>Shorter</button>
+                      <button class="secondary-button" type="submit" name="action" value="longer"{% if application_generation_allowed is defined and not application_generation_allowed %} disabled aria-disabled="true"{% endif %}>Longer</button>
+                      <button class="secondary-button" type="submit" name="action" value="recreate"{% if application_generation_allowed is defined and not application_generation_allowed %} disabled aria-disabled="true"{% endif %}>Recreate</button>
+                    </div>
+                  </form>
+                  <details class="danger-zone compact-danger"><summary>Delete cover letter</summary><p>The job and its match remain; only this local draft is removed.</p><form method="post" action="{{ url_for('application_delete', record_id=draft.job_record_id) }}" data-delete-confirm data-delete-subject="this cover letter"><input type="hidden" name="draft_id" value="{{ draft.id }}"><input type="hidden" name="confirm_delete" value="true"><button class="danger-button" type="submit">Delete draft</button></form></details>
+                </details>
+              {% endfor %}
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="panel empty-state"><h3>No cover letter yet</h3><p>Select a current Top or Stretch match above. The output will appear here for your review.</p></div>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

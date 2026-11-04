@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{{ task_view.browser_title }} · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="task-progress-shell" aria-labelledby="task-title">
+    <article
+      class="panel task-progress-card"
+      data-task-progress
+      data-status-url="{{ request.url_for('task_status', task_id=task.id) }}"
+      data-task-kind="{{ task.kind.value }}"
+      data-task-location="{{ task_view.waiting_location|default('', true)|e }}"
+    >
+      <div class="working-spinner{% if task.is_terminal %} is-stopped{% endif %}" aria-hidden="true"></div>
+      <p class="eyebrow">Background workflow</p>
+      <h1 id="task-title">{{ task_view.heading }}</h1>
+      <p class="hero-copy" data-task-waiting-message {% if task.is_terminal %}hidden{% endif %}>
+        The careful part takes a moment.
+      </p>
+      <p
+        class="form-help"
+        data-task-technical-status
+        aria-live="polite"
+        aria-atomic="true"
+        hidden
+      >
+        <strong>Live status:</strong>
+        <span data-task-message>{{ task.message }}</span>
+      </p>
+      <progress
+        data-task-progress-bar
+        max="100"
+        {% if task.total_units > 0 or task.is_terminal %}value="{{ task.progress_percent }}"{% endif %}
+        aria-label="{{ task_view.progress_label }}"
+      >{{ task.progress_percent }}%</progress>
+      <div class="task-progress-meta">
+        <span data-task-phase>{{ task.phase|replace('_', ' ')|title }}</span>
+        <span data-task-percent-wrap {% if task.total_units <= 0 and not task.is_terminal %}hidden{% endif %}><strong data-task-percent>{{ task.progress_percent }}</strong>%</span>
+        <span data-task-indeterminate {% if task.total_units > 0 or task.is_terminal %}hidden{% endif %}>In progress</span>
+      </div>
+      <p class="form-help" data-task-attempt>
+        Attempt {{ task.attempt if task.attempt else 1 }} of {{ task.max_attempts }}.
+        You can leave this page because the stored task will continue in the background.
+      </p>
+      <p class="task-duration-hint">
+        {% if task.kind.value == 'explore_search' %}
+          A complete all-provider Explore run can take five to seven minutes.
+        {% else %}
+          Careful source and route checks often take several minutes.
+        {% endif %}
+        Queued work or a retry can take longer, and you can return to the stored task later.
+      </p>
+      <p class="form-help task-updated">
+        Last task update:
+        <time data-task-updated datetime="{{ task.updated_at.isoformat() }}">
+          {{ task.updated_at.strftime("%H:%M:%S") }} UTC
+        </time>
+      </p>
+      <p class="form-help task-progress-actions">{{ task_view.resume_copy }}</p>
+      <form
+        class="task-cancel-form"
+        data-task-cancel-form
+        method="post"
+        action="{{ request.url_for('task_cancel', task_id=task.id) }}"
+        {% if task.is_terminal or task.cancel_requested_at %}hidden{% endif %}
+      >
+        <button
+          class="danger-button"
+          data-task-cancel-button
+          type="submit"
+        >Abort task</button>
+      </form>
+      <p
+        class="form-help task-stopping"
+        data-task-stopping
+        role="status"
+        {% if task.is_terminal or not task.cancel_requested_at %}hidden{% endif %}
+      >Stopping this workflow. Late provider responses cannot finish the task.</p>
+      <div class="task-error" data-task-worker-error {% if background_worker_running or task.is_terminal %}hidden{% endif %}>
+        <strong data-task-worker-error-title>
+          {{ 'The worker lease expired.' if background_worker_recovery_needed else 'The background worker is not running.' }}
+        </strong>
+        <p data-task-worker-error-message>
+          {% if background_worker_recovery_needed %}
+            The task remains stored and is waiting for a worker to recover it safely.
+          {% else %}
+            The task remains stored. Restart the application, then return to this page to resume it.
+          {% endif %}
+        </p>
+      </div>
+      <div class="task-error" data-task-error {% if task.status != task_status.FAILED %}hidden{% endif %}>
+        <strong>{{ task_view.failure_heading }}</strong>
+        <p data-task-error-message>{{ task.error_message or '' }}</p>
+        <a class="button secondary" href="{{ task_view.return_url }}">{{ task_view.return_label }}</a>
+      </div>
+      <div class="task-cancelled" data-task-cancelled {% if task.status != task_status.CANCELLED %}hidden{% endif %}>
+        <strong>Cancelled</strong>
+        <p>
+          This stored workflow will not be claimed or retried. Jobs or results saved before
+          the safe stopping point remain available.
+        </p>
+        <a class="button secondary" href="{{ task_view.return_url }}">{{ task_view.return_label }}</a>
+      </div>
+    </article>
+    {% if task.kind.value == 'explore_search' %}
+      <section
+        class="panel explore-progress-preview"
+        data-explore-progress-preview
+        data-preview-limit="{{ explore_preview_limit }}"
+        aria-labelledby="explore-progress-preview-title"
+        hidden
+      >
+        <div class="explore-progress-preview-heading">
+          <div>
+            <p class="eyebrow">Live result preview</p>
+            <h2 id="explore-progress-preview-title">Current leaders</h2>
+          </div>
+          <span class="soft-status"><strong data-explore-preview-count>0</strong> of {{ explore_preview_limit }}</span>
+        </div>
+        <p class="form-help">
+          This early ranking can move as new evidence arrives, and missing details add no points.
+        </p>
+        <div
+          class="explore-progress-preview-list"
+          data-explore-preview-list
+          aria-live="polite"
+          aria-atomic="true"
+        ></div>
+        <p class="form-help">Preview cards are not clickable until the search is complete.</p>
+      </section>
+    {% endif %}
+  </section>
+  <script src="{{ url_for('static', path='/task_progress.js') }}?v={{ app_version }}" defer></script>
+{% endblock %}

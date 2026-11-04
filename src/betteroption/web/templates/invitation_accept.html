@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Activate your invitation · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="auth-shell">
+    <article class="panel auth-card">
+      <p class="eyebrow">Private invitation</p>
+      <h1>Create your workspace.</h1>
+      <p class="hero-copy">Choose your account name and password. Your invitation is valid only for the email address selected by the operator.</p>
+      <p class="gentle-note" data-token-missing>This invitation link is incomplete. Ask the operator for a fresh link and open it without copying only part of the address.</p>
+      <form class="stacked-form" method="post" action="{{ url_for('accept_invitation') }}">
+        <input
+          type="hidden"
+          name="token"
+          value="{{ submitted_token|default('') }}"
+          data-fragment-token
+        >
+        <label>
+          Display name
+          <input name="display_name" autocomplete="name" required maxlength="32" data-token-required disabled>
+        </label>
+        <label>
+          Password
+          <input name="password" type="password" autocomplete="new-password" required minlength="10" maxlength="1024" data-token-required disabled>
+        </label>
+        <label>
+          Confirm password
+          <input name="password_confirmation" type="password" autocomplete="new-password" required minlength="10" maxlength="1024" data-token-required disabled>
+        </label>
+        <label class="checkbox-row">
+          <input name="accept_terms" type="checkbox" required data-token-required disabled>
+          <span>I accept the <a href="{{ url_for('terms') }}" target="_blank" rel="noopener">current Terms</a> ({{ terms_version }}).</span>
+        </label>
+        <label class="checkbox-row">
+          <input name="acknowledge_privacy" type="checkbox" required data-token-required disabled>
+          <span>I acknowledge the <a href="{{ url_for('privacy_notice') }}" target="_blank" rel="noopener">Privacy Notice</a> ({{ privacy_version }}).</span>
+        </label>
+        <label class="checkbox-row">
+          <input name="confirm_adult" type="checkbox" value="yes" required data-token-required disabled>
+          <span>I confirm that I am at least 18 years old.</span>
+        </label>
+        <button class="primary-button" type="submit" data-token-required disabled>Activate account</button>
+      </form>
+      <p class="auth-switch">Already activated? <a class="text-link" href="{{ url_for('login') }}">Sign in</a>.</p>
+    </article>
+  </section>
+{% endblock %}

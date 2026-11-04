@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Add jobs · WorkLifeBalance{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">Optional job intake</p>
+    <h1>Add a role you already found.</h1>
+    <p>Save a public job URL before Matching. You can also record what resonates and create reviewable Compass suggestions without treating a liked job as a blanket preference.</p>
+  </header>
+
+  {% include "compass_integrity_notice.html" %}
+
+  {% if not workspace %}
+    <section class="panel empty-state wide"><span aria-hidden="true">◎</span><h2>Start with a persona Compass</h2><p>Create the active persona’s Compass before saving jobs or learning from them.</p><a class="primary-button" href="{{ url_for('profile') }}">Build Compass</a></section>
+  {% else %}
+    <section class="match-input-layout">
+      <form class="panel form-panel add-primary-action-shell" method="post" action="{{ url_for('add_job') }}" data-busy-message="Checking the source and extracting the job details…" data-manual-source-form>
+        <div class="slot-heading"><div><p class="eyebrow">Add or update a job</p><h2>{{ stored_count }}/{{ max_stored_jobs }} slots used</h2></div><span class="soft-status">{{ max_stored_jobs - stored_count }} available</span></div>
+        <label for="add-job-url">Job URL<input id="add-job-url" type="url" name="url" required maxlength="2000" value="{{ add_form.url if add_form is defined else '' }}" placeholder="https://company.example/jobs/123"></label>
+        <label for="reference-positives">What appeals to you? <small>Optional</small><textarea id="reference-positives" name="positives" rows="4" maxlength="5000" placeholder="One point per line">{{ add_form.positives if add_form is defined else '' }}</textarea></label>
+        <label for="reference-negatives">What does not fit? <small>Optional</small><textarea id="reference-negatives" name="negatives" rows="4" maxlength="5000" placeholder="One point per line">{{ add_form.negatives if add_form is defined else '' }}</textarea></label>
+        <label class="switch-row"><input type="checkbox" name="learning_enabled" value="true"{% if add_form is defined and add_form.learning_enabled %} checked{% endif %}><span><strong>Create Compass suggestions from this job now</strong><small>Learning is off by default. It requires a positive note and a scope, then opens Review. Nothing affects Matching until you confirm it.</small></span></label>
+        <fieldset><legend>Allowed learning scope</legend><div class="chip-checks">{% for scope in ['role','skills','culture','location','work_model','pay'] %}<label><input type="checkbox" name="learning_scope" value="{{ scope }}"{% if add_form is defined and scope in add_form.learning_scope %} checked{% endif %}>{{ scope|replace('_',' ')|title }}</label>{% endfor %}</div></fieldset>
+        <p class="form-help">Submitting an already stored URL refreshes the source and its optional notes without consuming another slot.</p>
+        <section class="manual-job-inline" id="manual-job-input" data-manual-job-dialog{% if not (manual_input_required is defined and manual_input_required) %} hidden{% endif %} aria-labelledby="manual-job-title">
+          <div class="section-heading"><div><p class="eyebrow">Manual input</p><h2 id="manual-job-title">Paste the advertisement text</h2></div><button class="dialog-close" type="button" data-manual-job-close aria-label="Close manual input">×</button></div>
+          {% if manual_input_reason is defined and manual_input_reason %}<p class="manual-input-reason" role="status">{{ manual_input_reason }}</p>{% else %}<p>Use this when the portal cannot be read. The URL, notes, and Compass-learning choices above stay attached.</p>{% endif %}
+          {% if manual_source_url %}<p><a class="text-link" href="{{ manual_source_url }}" target="_blank" rel="noopener noreferrer">Inspect source ↗</a></p>{% endif %}
+          <label>Advertisement text<textarea name="manual_source_text" minlength="80" maxlength="150000" rows="14" placeholder="Paste the complete public job advertisement here…">{{ manual_job_text if manual_job_text is defined else '' }}</textarea></label>
+        </section>
+        <div class="add-job-actions primary-action-tile add-primary-action">
+          <button class="secondary-button" type="button" data-manual-job-open aria-controls="manual-job-input" aria-expanded="{{ 'true' if manual_input_required is defined and manual_input_required else 'false' }}">Paste manual job text</button>
+          <button class="primary-button" type="submit">Verify and save job <span aria-hidden="true">→</span></button>
+        </div>
+      </form>
+
+      <section class="reference-summary">
+        <div class="section-heading"><div><p class="eyebrow">Saved input</p><h2>Jobs with reference notes</h2></div><a class="text-link" href="{{ url_for('jobs') }}">Manage Archive</a></div>
+        {% if references %}
+          <div class="reference-list">
+            {% for reference in references %}
+              <article class="panel reference-card">
+                {% if reference.input_method == 'manual_text' %}
+                  {% if 'manual.betteroption.local' not in reference.url|string %}<a href="{{ reference.url }}" target="_blank" rel="noopener noreferrer">{{ reference.url }}</a>{% else %}<strong>No external source link</strong>{% endif %}
+                  <span class="availability manual"><span></span>Manual input · never rechecked</span>
+                {% else %}
+                  <a href="{{ reference.resolved_url }}" target="_blank" rel="noopener noreferrer">{{ reference.resolved_url }}</a>
+                  <span class="availability live"><span></span>Verified · HTTP {{ reference.url_http_status }}</span>
+                {% endif %}
+                {% if reference.positives %}<div><h3>Appeals</h3><ul>{% for item in reference.positives %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endif %}
+                {% if reference.negatives %}<div><h3>Does not fit</h3><ul>{% for item in reference.negatives %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endif %}
+                <p>{{ 'Learning enabled for ' ~ reference.learning_scope|join(', ') if reference.learning_enabled else 'Learning off' }}</p>
+                <details class="danger-zone compact-danger"><summary>Delete this saved job</summary><p>This removes the notes, archived job, match history, and local source copies, and frees its slot.</p><form method="post" action="{{ url_for('add_reference_delete', reference_id=reference.id) }}" data-delete-confirm data-delete-subject="this saved job"><input type="hidden" name="confirm_delete" value="true"><button class="danger-button" type="submit">Delete and free slot</button></form></details>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state panel"><h3>No manually added jobs yet</h3><p>This step is optional. Explore can discover roles first, or you can paste a specific employer URL here.</p></div>
+        {% endif %}
+      </section>
+    </section>
+
+    <section class="panel account-settings" id="employer-portals">
+      <div>
+        <p class="eyebrow">Optional Explore sources</p>
+        <h2>Employer career portals</h2>
+        <p class="hero-copy">Save up to ten public HTTPS career portals for this persona. WorkLifeBalance passes only the hostname as a bounded search hint to whichever enabled search provider supports it; it does not crawl the portal directly.</p>
+      </div>
+      <form class="stacked-form portal-create-form" method="post" action="{{ url_for('portal_create') }}">
+        <label>Portal URL<input type="url" name="url" required maxlength="2000" placeholder="https://careers.example.com/jobs"></label>
+        <label>Label <small>Optional</small><input name="label" maxlength="80" placeholder="Example careers"></label>
+        <button class="secondary-button" type="submit">Save portal for this persona</button>
+      </form>
+      {% if portals %}
+        <div class="portal-source-list">
+          {% for portal in portals %}
+            <article class="portal-source-row">
+              <div><strong>{{ portal.label }}</strong><span>{{ portal.hostname }}</span></div>
+              <form method="post" action="{{ url_for('portal_toggle', source_id=portal.id) }}">
+                <input type="hidden" name="enabled" value="{{ 'false' if portal.enabled else 'true' }}">
+                <button class="secondary-button" type="submit">{{ 'Pause' if portal.enabled else 'Enable' }}</button>
+              </form>
+              <form method="post" action="{{ url_for('portal_delete', source_id=portal.id) }}" data-delete-confirm data-delete-subject="this employer portal">
+                <input type="hidden" name="confirm_delete" value="true">
+                <button class="danger-button" type="submit">Delete</button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+
+    <div class="page-end-action">
+      <a class="primary-button" href="{{ url_for('matches') }}">Continue to Match <span aria-hidden="true">→</span></a>
+    </div>
+  {% endif %}
+{% endblock %}

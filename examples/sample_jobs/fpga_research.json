@@ -1,0 +1,17 @@
+{
+  "id": "00000000-0000-4000-8000-000000000103",
+  "title": "FPGA Research Engineer",
+  "company": "SignalFoundry",
+  "location": "Germany",
+  "summary": "Technically relevant FPGA research role with limited employment and work-model evidence.",
+  "source_type": "sample",
+  "source_name": "fpga_research.json",
+  "source_text": "SignalFoundry is looking for an FPGA Research Engineer in Germany. You will prototype real-time signal-processing systems and integrate FPGA hardware with embedded software. Hands-on FPGA experience is required; C++ is advantageous. Details about remote work, weekly hours, salary, and the employment contract are available during the interview process.",
+  "facts": [
+    {"key": "role.family", "value": "FPGA development", "kind": "context", "evidence_quote": "FPGA Research Engineer"},
+    {"key": "role.responsibility", "value": "prototyping", "kind": "requirement", "evidence_quote": "prototype real-time signal-processing systems"},
+    {"key": "role.responsibility", "value": "hardware-software integration", "kind": "requirement", "evidence_quote": "integrate FPGA hardware with embedded software"},
+    {"key": "skill.name", "value": "FPGA", "kind": "requirement", "evidence_quote": "Hands-on FPGA experience is required"},
+    {"key": "skill.name", "value": "C++", "kind": "preference", "evidence_quote": "C++ is advantageous"}
+  ]
+}

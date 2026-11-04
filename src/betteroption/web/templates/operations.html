@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+{% block title %}Operations · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="hero compact-hero" aria-labelledby="operations-title">
+    <div>
+      <p class="eyebrow">Private-alpha control room</p>
+      <h1 id="operations-title">Know what the providers cost.</h1>
+      <p class="hero-copy">Counts, latency, failures, and configured estimates are visible here. Candidate searches, locations, prompts, CV text, job text, URLs, and API keys are never written to this ledger.</p>
+      <p class="operations-freshness">
+        Live view observed <time datetime="{{ operations_as_of.isoformat() }}">{{ operations_as_of.astimezone().strftime('%d %b %Y, %H:%M:%S') }}</time>.
+        {% if active_background_tasks %}
+          {{ active_background_tasks }} workflow{{ '' if active_background_tasks == 1 else 's' }} still active; this page refreshes while work continues.
+        {% else %}
+          <a href="{{ url_for('operations') }}">Refresh activity</a>
+        {% endif %}
+      </p>
+    </div>
+  </section>
+  {% if active_background_tasks %}<span data-operations-auto-refresh data-refresh-seconds="5" hidden></span>{% endif %}
+
+  <section class="operations-summary-grid" aria-label="Provider usage summary">
+    <article class="panel">
+      <p class="eyebrow">Since 00:00 UTC</p>
+      <h2>Today</h2>
+      <div class="metric-row operations-metrics">
+        <div><strong>{{ today.total_operations }}</strong><span>Operations · {{ today.pending_operations }} pending</span></div>
+        <div><strong>{{ today.result_count }}</strong><span>Results</span></div>
+        <div><strong>{{ today.failed_operations }}</strong><span>Failures</span></div>
+        <div><strong>${{ '%.4f'|format(today.estimated_cost_usd) }}{% if today.costed_operations < today.total_operations %} + unpriced{% endif %}</strong><span>Estimated</span></div>
+      </div>
+    </article>
+    <article class="panel">
+      <p class="eyebrow">Rolling seven days</p>
+      <h2>Recent use</h2>
+      <div class="metric-row operations-metrics">
+        <div><strong>{{ week.total_operations }}</strong><span>Operations · {{ week.pending_operations }} pending</span></div>
+        <div><strong>{{ week.result_count }}</strong><span>Results</span></div>
+        <div><strong>{{ week.blocked_operations }}</strong><span>Budget blocks</span></div>
+        <div><strong>${{ '%.4f'|format(week.estimated_cost_usd) }}{% if week.costed_operations < week.total_operations %} + unpriced{% endif %}</strong><span>Estimated</span></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="panel operations-control" aria-labelledby="readiness-title">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Private-alpha gate</p><h2 id="readiness-title">Release readiness</h2></div>
+      <span class="soft-status">{{ readiness_ready_count }}/{{ readiness_checks|length }} controls ready</span>
+    </div>
+    <div class="readiness-list">
+      {% for label, ready, guidance in readiness_checks %}
+        <article class="readiness-item {{ 'is-ready' if ready else 'needs-work' }}">
+          <span aria-hidden="true">{{ '✓' if ready else '!' }}</span>
+          <div><strong>{{ label }}</strong><p>{{ guidance }}</p></div>
+        </article>
+      {% endfor %}
+    </div>
+    <p class="gentle-note">This engineering checklist does not replace legal advice, a security review, or a deployment review. Operations requires a persisted admin role; the legacy email allowlist works only until the first database admin is granted.</p>
+  </section>
+
+  <section class="panel operations-control" id="account-access" aria-labelledby="account-access-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Owner-managed access</p>
+        <h2 id="account-access-title">Invitations and recovery</h2>
+      </div>
+      <span class="soft-status">{{ registration_mode.value|replace('_', ' ')|title }}</span>
+    </div>
+    <p class="hero-copy">Every invitation is restricted to one email address, expires automatically, and can be accepted only once. WorkLifeBalance displays each secret link once; deliver it to the intended person through a trusted channel.</p>
+
+    <div class="access-readiness" aria-label="Invitation readiness">
+      {% for label, ready in invitation_readiness %}
+        <span class="{{ 'is-ready' if ready else 'needs-work' }}">{{ '✓' if ready else '!' }} {{ label }}</span>
+      {% endfor %}
+    </div>
+
+    <form class="access-invitation-form" method="post" action="{{ url_for('operations_invitation') }}">
+      <label>
+        Invitee email
+        <input
+          name="email"
+          type="email"
+          autocomplete="off"
+          maxlength="320"
+          placeholder="tester@example.com"
+          required
+          {% if not invitations_enabled %}disabled{% endif %}
+        >
+      </label>
+      <button
+        class="primary-button"
+        type="submit"
+        data-busy-message="Creating a private one-time invitation…"
+        {% if not invitations_enabled %}disabled{% endif %}
+      >Create invitation</button>
+    </form>
+    {% if not invitations_enabled %}
+      <p class="gentle-note">Invitation creation stays locked until registration mode is <code>invite_only</code> and all four readiness controls above are complete.</p>
+    {% endif %}
+
+    <div class="account-access-grid">
+      <div>
+        <h3>Recent invitations</h3>
+        {% if invitations %}
+          <div class="operations-table-wrap">
+            <table class="operations-table">
+              <thead><tr><th>Email</th><th>Status</th><th>Expires</th><th></th></tr></thead>
+              <tbody>
+                {% for invitation in invitations %}
+                  <tr>
+                    <th scope="row">{{ invitation.email }}</th>
+                    <td>
+                      {% if invitation.accepted_at %}Accepted
+                      {% elif invitation.revoked_at %}Revoked
+                      {% elif invitation.expires_at <= operations_as_of %}Expired
+                      {% else %}Pending{% endif %}
+                    </td>
+                    <td>{{ invitation.expires_at.strftime('%d %b %Y, %H:%M') }} UTC</td>
+                    <td>
+                      {% if invitation.pending %}
+                        <form method="post" action="{{ url_for('operations_invitation_revoke', invitation_id=invitation.id) }}">
+                          <button class="text-button" type="submit">Revoke</button>
+                        </form>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="gentle-note">No invitation has been created.</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <h3>Accounts</h3>
+        {% if legacy_operator_bridge_active %}
+          <p class="gentle-note">Legacy bootstrap is active because this upgraded database has no admin yet. Grant your own account the Admin role first; the environment allowlist then stops authorizing Operations.</p>
+        {% endif %}
+        <div class="operations-account-list">
+          {% for account in accounts %}
+            <details class="operations-account-card" id="account-{{ account.id }}"{% if current_operator and account.id == current_operator.id and legacy_operator_bridge_active %} open{% endif %}>
+              <summary>
+                <span>
+                  <strong>{{ account.display_name }}</strong>
+                  <small>{{ account.email }} · created {{ account.created_at.strftime('%d %b %Y') }}</small>
+                </span>
+                <span class="account-access-badges">
+                  <span class="soft-status">{{ account.role.value|title }}</span>
+                  <span class="soft-status">{{ 'Full alpha tester' if account.access_tier.value == 'tester' else 'Standard alpha' }}</span>
+                  {% if feedback_counts.get(account.id, 0) %}<span class="soft-status">{{ feedback_counts.get(account.id) }} feedback</span>{% endif %}
+                </span>
+              </summary>
+              <div class="operations-account-controls">
+                <form class="stacked-form" method="post" action="{{ url_for('operations_account_access', account_id_value=account.id) }}">
+                  <div class="feedback-field-grid">
+                    <label>
+                      Workspace role
+                      <select name="role">
+                        <option value="member"{% if account.role.value == 'member' %} selected{% endif %}>Member</option>
+                        <option value="admin"{% if account.role.value == 'admin' %} selected{% endif %}>Admin</option>
+                      </select>
+                    </label>
+                    <label>
+                      Alpha access
+                      <select name="access_tier">
+                        <option value="standard"{% if account.access_tier.value == 'standard' %} selected{% endif %}>Standard alpha</option>
+                        <option value="tester"{% if account.access_tier.value == 'tester' %} selected{% endif %}>Full alpha tester</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p class="form-help">Admin controls Operations. Tester access unlocks the full current private-alpha experience while keeping the same configured job, persona, route, provider, and draft safety caps. Job-poster approval stays separate below.</p>
+                  <label>
+                    Your current admin password
+                    <input name="current_password" type="password" required maxlength="1024" autocomplete="current-password">
+                  </label>
+                  <button class="secondary-button" type="submit">Save account access</button>
+                </form>
+                <form class="stacked-form" method="post" action="{{ url_for('operations_account_recovery', account_id_value=account.id) }}">
+                  <label>
+                    Your current admin password
+                    <input name="current_password" type="password" required maxlength="1024" autocomplete="current-password">
+                  </label>
+                  <button class="text-button" type="submit">Issue recovery link</button>
+                </form>
+                <p class="form-help">{{ 'Verified' if account.email_verified_at else 'Verification pending' }}. WorkLifeBalance refuses to demote the final persisted admin, or delete that admin while other accounts would be stranded.</p>
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <p class="form-help">Email verification is completed by accepting the exact-address invitation. Recovery links expire quickly, work once, and revoke every existing browser session after a successful password reset.</p>
+  </section>
+
+  <section class="panel operations-control" id="product-feedback" aria-labelledby="product-feedback-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Human-reviewed alpha input</p>
+        <h2 id="product-feedback-title">Product feedback</h2>
+      </div>
+      <a class="secondary-button" href="{{ url_for('operations_feedback_export') }}">Export CSV</a>
+    </div>
+    <p class="hero-copy">Feedback is account-owned, retained for 180 days after its last update, and never sent to AI, model evaluation, analytics, or advertising. Follow up only where the tester opted in.</p>
+    {% if feedback_items %}
+      <div class="operations-feedback-list">
+        {% for item in feedback_items %}
+          {% set owner = feedback_accounts.get(item.account_id) %}
+          <details class="operations-account-card"{% if item.status.value == 'new' %} open{% endif %}>
+            <summary>
+              <span>
+                <strong>{{ item.category.value|replace('_', ' ')|title }} · {{ item.surface.value|replace('_', ' ')|title }}</strong>
+                <small>{{ owner.display_name if owner else 'Deleted account' }} · {{ item.created_at.strftime('%d %b %Y, %H:%M') }} UTC{% if item.rating %} · {{ item.rating }}/5{% endif %}</small>
+              </span>
+              <span class="soft-status">{{ item.status.value|title }}</span>
+            </summary>
+            <div class="operations-account-controls">
+              <blockquote>{{ item.message }}</blockquote>
+              <p class="form-help">{% if item.contact_allowed and owner %}Follow-up allowed at {{ owner.email }}.{% else %}No email follow-up permission.{% endif %}</p>
+              <form class="stacked-form" method="post" action="{{ url_for('operations_feedback_review', feedback_id=item.id) }}">
+                <label>
+                  Triage status
+                  <select name="status">
+                    {% for status in feedback_status %}
+                      <option value="{{ status.value }}"{% if status == item.status %} selected{% endif %}>{{ status.value|title }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Internal note
+                  <textarea name="operator_note" rows="3" maxlength="2000" placeholder="Private triage context; never sent to AI or shown to the tester">{{ item.operator_note }}</textarea>
+                </label>
+                <button class="secondary-button" type="submit">Save review</button>
+              </form>
+            </div>
+          </details>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="gentle-note">No product feedback has been submitted.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel operations-control" id="job-poster-access" aria-labelledby="job-poster-access-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Separate employer boundary</p>
+        <h2 id="job-poster-access-title">Verified job posters</h2>
+      </div>
+      <span class="soft-status">{{ job_poster_requests|length }} request{{ '' if job_poster_requests|length == 1 else 's' }}</span>
+    </div>
+    <p class="hero-copy">Approval unlocks only public vacancy publishing for the reviewed company. It never exposes candidate accounts, personas, Compass data, ratings, matches, or drafts.</p>
+    {% if job_poster_requests %}
+      <div class="operations-table-wrap">
+        <table class="operations-table">
+          <thead><tr><th>Company</th><th>Work identity</th><th>Status</th><th>Review</th></tr></thead>
+          <tbody>
+            {% for access in job_poster_requests %}
+              <tr>
+                <th scope="row">
+                  {{ access.company_name }}
+                  <small><a href="{{ access.company_website }}" rel="noopener noreferrer" target="_blank">Open company website ↗</a></small>
+                </th>
+                <td>{{ access.work_email }}<small>Requested {{ access.requested_at.strftime('%d %b %Y, %H:%M') }} UTC</small></td>
+                <td>{{ access.status.value|title }}{% if access.reviewer_note %}<small>{{ access.reviewer_note }}</small>{% endif %}</td>
+                <td>
+                  <form class="stacked-form" method="post" action="{{ url_for('operations_job_poster_review', account_id_value=access.account_id) }}">
+                    <label>
+                      Review note
+                      <input name="reviewer_note" maxlength="2000" value="{{ access.reviewer_note }}" placeholder="Required when rejecting">
+                    </label>
+                    <div class="inline-actions">
+                      <button class="secondary-button" name="decision" value="approve" type="submit">Approve</button>
+                      <button class="danger-button" name="decision" value="reject" type="submit">Reject</button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="gentle-note">No job-poster verification request has been submitted.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel operations-control" aria-labelledby="providers-title">
+    <div class="panel-heading"><div><p class="eyebrow">Runtime configuration</p><h2 id="providers-title">Provider visibility</h2></div><span class="soft-status">Secrets hidden</span></div>
+    <div class="estimate-list">
+      {% for label, status, purpose in provider_statuses %}
+        <div><span><strong>{{ label }}</strong><small>{{ purpose }}</small></span><strong>{{ status }}</strong></div>
+      {% endfor %}
+    </div>
+    <p class="form-help">This shows only whether a provider can be used. API keys and request contents are never rendered or stored in the operations ledger.</p>
+  </section>
+
+  <section class="panel operations-control" aria-labelledby="guard-title">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Operator control</p><h2 id="guard-title">Daily safety rails</h2></div>
+      <span class="soft-status">UTC day</span>
+    </div>
+    <div class="guard-grid">
+      <div><strong>{{ operation_limit if operation_limit else 'Off' }}</strong><span>Maximum recorded operations</span><code>BETTEROPTION_PROVIDER_DAILY_OPERATION_LIMIT</code></div>
+      <div><strong>{% if cost_limit_usd %}${{ '%.2f'|format(cost_limit_usd) }}{% else %}Off{% endif %}</strong><span>Estimated-cost ceiling</span><code>BETTEROPTION_PROVIDER_DAILY_COST_LIMIT_USD</code></div>
+      <div><strong>{{ action_operation_limit if action_operation_limit else 'Off' }}</strong><span>Maximum provider calls per workflow</span><code>BETTEROPTION_PROVIDER_ACTION_OPERATION_LIMIT</code></div>
+      <div><strong>{% if action_cost_limit_usd %}${{ '%.2f'|format(action_cost_limit_usd) }}{% else %}Off{% endif %}</strong><span>Estimated-cost ceiling per workflow</span><code>BETTEROPTION_PROVIDER_ACTION_COST_LIMIT_USD</code></div>
+    </div>
+    <p class="gentle-note">Authorization counters reserve capacity before concurrent provider calls begin. Edit limits in the deployment secret/environment configuration and restart the app. The web interface intentionally cannot change production limits or reveal secrets.</p>
+  </section>
+
+  <section class="section-block" aria-labelledby="tasks-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">Durable workflows</p><h2 id="tasks-title">Background activity</h2></div>
+      <span class="soft-status">Worker {{ 'running' if background_worker_running else ('waiting for startup' if background_worker_enabled else 'disabled') }}</span>
+    </div>
+    {% if background_tasks %}
+      <div
+        class="operations-table-wrap operations-history-scroll panel"
+        tabindex="0"
+        role="region"
+        aria-label="Background activity history, latest 100 workflows"
+      >
+        <table class="operations-table">
+          <thead><tr><th>Last activity</th><th>Workflow</th><th>Status</th><th>Progress</th><th>Attempt</th><th>Message</th></tr></thead>
+          <tbody>
+            {% for task in background_tasks %}
+              <tr>
+                <th scope="row">{{ task.updated_at.strftime('%d %b %Y, %H:%M:%S') }} UTC</th>
+                <td>{{ task.kind.value|replace('_', ' ')|title }}</td>
+                <td>{{ task.status.value|replace('_', ' ')|title }}</td>
+                <td>{{ task.progress_percent }}%</td>
+                <td>{{ task.attempt }}/{{ task.max_attempts }}</td>
+                <td>{{ task.message }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="panel empty-state wide"><span aria-hidden="true">◌</span><h3>No background workflow yet</h3><p>The next Matching run will remain visible here through progress, retries, completion, or a restart.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="section-block" aria-labelledby="breakdown-title">
+    <div class="section-heading"><div><p class="eyebrow">Today by provider</p><h2 id="breakdown-title">Where the work happened</h2></div></div>
+    {% if breakdown %}
+      <div class="operations-table-wrap panel">
+        <table class="operations-table">
+          <thead><tr><th>Provider</th><th>Purpose</th><th>Calls</th><th>Results</th><th>Average</th><th>Failures</th><th>Blocked</th><th>Pending</th><th>Estimated</th></tr></thead>
+          <tbody>
+            {% for row in breakdown %}
+              <tr>
+                <th scope="row">{{ row.provider }}</th><td>{{ row.purpose }}</td><td>{{ row.total_operations }}</td><td>{{ row.result_count }}</td><td>{{ row.average_latency_ms }} ms</td><td>{{ row.failed_operations }}{% if row.failure_types %}<small>Sanitized: {{ row.failure_types|join(', ') }}</small>{% endif %}</td><td>{{ row.blocked_operations }}</td><td>{{ row.pending_operations }}</td><td>${{ '%.4f'|format(row.estimated_cost_usd) }}{% if row.costed_operations < row.total_operations %} + unpriced{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="panel empty-state wide"><span aria-hidden="true">◎</span><h3>No provider activity today</h3><p>Run Explore, Matching, extraction, or company research to populate this privacy-safe view.</p></div>
+    {% endif %}
+    <p class="form-help">Failure categories in this table aggregate every operation since 00:00 UTC, so they can include earlier attempts. For the exact current Explore workflow, use “What the last source run contributed” on Explore.</p>
+  </section>
+
+  <section class="section-block" aria-labelledby="runs-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">Match-run KPIs</p><h2 id="runs-title">What each run consumed</h2></div>
+      <span class="soft-status">Latest 100 · scroll for history</span>
+    </div>
+    {% if recent_runs %}
+      <div
+        class="operations-table-wrap operations-history-scroll panel"
+        tabindex="0"
+        role="region"
+        aria-label="Match run consumption history, latest 100 runs"
+      >
+        <table class="operations-table">
+          <thead><tr><th>Run</th><th>Jobs / slots</th><th>Result groups</th><th>Exact routes</th><th>Provider work</th><th>Duration</th><th>Estimated</th></tr></thead>
+          <tbody>
+            {% for item in recent_runs %}{% set metrics = item.snapshot.metrics %}
+              <tr>
+                <th scope="row">{{ item.snapshot.created_at.strftime('%d %b %Y, %H:%M') }} UTC</th>
+                <td>{{ metrics.jobs_evaluated }} evaluated · {{ metrics.included_slots }} included</td>
+                <td>{{ metrics.top_count }} Top · {{ metrics.stretch_count }} Stretch · {{ metrics.blocked_count }} Blocked</td>
+                <td>{{ metrics.exact_route_jobs }}</td>
+                <td>{{ metrics.provider_operations }} call{% if metrics.provider_operations != 1 %}s{% endif %}<small>{{ item.provider_names }}</small>{% if metrics.provider_failures %}<small>{{ metrics.provider_failures }} failed</small>{% endif %}</td>
+                <td>{{ '%.1f'|format(metrics.latency_ms / 1000) }} s</td>
+                <td>${{ '%.4f'|format(metrics.estimated_cost_usd) }}{% if metrics.has_unpriced_operations %} + unpriced{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="panel empty-state wide"><span aria-hidden="true">◇</span><h3>No measured match run yet</h3><p>The next Matching run will record privacy-safe job, slot, route, provider, duration, and cost-estimate counters.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="panel operations-control" aria-labelledby="estimate-title">
+    <div class="panel-heading"><div><p class="eyebrow">Cost model</p><h2 id="estimate-title">Configured unit estimates</h2></div></div>
+    <div class="estimate-list">
+      {% for label, value, variable in cost_estimates %}
+        <div><span><strong>{{ label }}</strong><code>{{ variable }}</code></span><strong>{% if value %}${{ '%.6f'|format(value) }}{% else %}Not configured{% endif %}</strong></div>
+      {% endfor %}
+    </div>
+    <p class="form-help">A zero estimate means “unknown cost,” not “free.” Provider invoices remain authoritative. OpenAI token estimates use the separate per-million-token settings.</p>
+  </section>
+
+  <section class="panel operations-control" id="billing-calibration" aria-labelledby="billing-title">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Observed billing</p>
+        <h2 id="billing-title">Calibrate estimates from invoices</h2>
+      </div>
+      <span class="soft-status">Metadata only</span>
+    </div>
+    <p class="hero-copy">Enter a provider billing window from its dashboard. WorkLifeBalance correlates the amount with recorded calls and units from the same UTC interval. Search text, job URLs, locations, CV content, and API keys are not stored here.</p>
+    <form class="billing-calibration-form" method="post" action="{{ url_for('operations_calibration') }}">
+      <label>
+        Provider ledger name
+        <input name="provider" list="provider-names" required maxlength="80" placeholder="brave-web">
+        <datalist id="provider-names">
+          {% for provider in known_provider_names %}<option value="{{ provider }}"></option>{% endfor %}
+        </datalist>
+      </label>
+      <label>
+        Period start
+        <input name="period_start" type="date" required>
+      </label>
+      <label>
+        Period end
+        <input name="period_end" type="date" required>
+      </label>
+      <label>
+        Billed amount
+        <input name="billed_amount" type="number" min="0" step="0.000001" required>
+      </label>
+      <label>
+        Currency
+        <input name="currency" value="USD" pattern="[A-Za-z]{3}" maxlength="3" required>
+      </label>
+      <label>
+        Source label
+        <input name="source_label" maxlength="120" placeholder="July provider dashboard">
+      </label>
+      <button class="primary-button" type="submit">Save billing window</button>
+    </form>
+    {% if billing_reports %}
+      <div class="operations-table-wrap operations-history-scroll" tabindex="0" role="region" aria-label="Billing calibration history">
+        <table class="operations-table">
+          <thead><tr><th>Provider and period</th><th>Observed use</th><th>Invoice</th><th>Effective rate</th><th></th></tr></thead>
+          <tbody>
+            {% for report in billing_reports %}
+              <tr>
+                <th scope="row">
+                  {{ report.period.provider }}
+                  <small>{{ report.period.period_start.strftime('%d %b %Y') }} to {{ report.period.period_end.strftime('%d %b %Y') }} (end exclusive)</small>
+                </th>
+                <td>{{ report.usage.total_operations }} calls · {{ report.usage.unit_count }} units</td>
+                <td>{{ report.period.currency }} {{ '%.4f'|format(report.period.billed_amount) }}{% if report.period.source_label %}<small>{{ report.period.source_label }}</small>{% endif %}</td>
+                <td>
+                  {% if report.effective_cost_per_operation is not none %}
+                    {{ report.period.currency }} {{ '%.6f'|format(report.effective_cost_per_operation) }}/call
+                  {% else %}
+                    No correlated calls
+                  {% endif %}
+                  {% if report.effective_cost_per_unit is not none %}<small>{{ report.period.currency }} {{ '%.6f'|format(report.effective_cost_per_unit) }}/unit</small>{% endif %}
+                </td>
+                <td>
+                  <form method="post" action="{{ url_for('operations_calibration_delete', period_id=report.period.id) }}">
+                    <button class="text-button" type="submit">Remove</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="gentle-note">No observed billing window yet. Configured estimates remain clearly labelled estimates until you add one.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Personas · WorkLifeBalance{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">Account workspaces</p>
+    <h1>One account, different job-search lenses.</h1>
+    <p>Personas are private workspaces inside <strong>{{ current_account.email }}</strong>. They have no separate password and are never visible to another account.</p>
+  </header>
+
+  <section class="persona-workspace-layout">
+    <div>
+      <div class="section-heading">
+        <div><p class="eyebrow">Your personas</p><h2>{{ personas|length }} of {{ persona_limit }} slots used</h2></div>
+      </div>
+      {% if personas %}
+        <div class="persona-list">
+          {% for persona in personas %}
+            <article class="panel persona-card{% if current_persona and current_persona.id == persona.id %} current-persona{% endif %}">
+              <div class="panel-heading">
+                <div class="persona-identity"><strong>{{ persona.name }}</strong><small>Created {{ persona.created_at.strftime('%d %b %Y') }}</small></div>
+                {% if current_persona and current_persona.id == persona.id %}<span class="soft-status">Active</span>{% endif %}
+              </div>
+              {% if not current_persona or current_persona.id != persona.id %}
+                <form method="post" action="{{ url_for('persona_switch', persona_id=persona.id) }}">
+                  <button class="primary-button" type="submit">Open {{ persona.name }}</button>
+                </form>
+              {% endif %}
+              <details>
+                <summary>Rename</summary>
+                <form class="stacked-form compact-form" method="post" action="{{ url_for('persona_rename', persona_id=persona.id) }}">
+                  <label>Persona name<input name="display_name" value="{{ persona.name }}" required maxlength="40"></label>
+                  <button class="secondary-button" type="submit">Save name</button>
+                </form>
+              </details>
+              {% if personas|length > 1 %}
+                <details class="danger-zone compact-danger">
+                  <summary>Delete persona</summary>
+                  <p>This permanently removes this persona’s Compass, saved-job access, matches, drafts, and application history. Your email account remains.</p>
+                  <form method="post" action="{{ url_for('persona_delete', persona_id=persona.id) }}" data-delete-confirm data-delete-subject="the {{ persona.name }} persona">
+                    <input type="hidden" name="confirm_delete" value="true">
+                    <button class="danger-button" type="submit">Delete {{ persona.name }}</button>
+                  </form>
+                </details>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="panel empty-state"><h3>No persona yet</h3><p>Create the first workspace for this account.</p></div>
+      {% endif %}
+    </div>
+
+    <form class="panel stacked-form" id="new-persona" method="post" action="{{ url_for('persona_create') }}">
+      <p class="eyebrow">New workspace</p>
+      <h2>Create a persona</h2>
+      <p>Use a purpose such as “Embedded”, “Product”, or “Research”. Each starts with an independent Compass and job history.</p>
+      <label>
+        Persona name
+        <input name="display_name" required maxlength="40" placeholder="Embedded roles">
+        <span class="form-help">Unique within this account. No extra password is needed.</span>
+      </label>
+      <button class="primary-button" type="submit" {% if personas|length >= persona_limit %}disabled{% endif %}>Create and open persona</button>
+      {% if personas|length >= persona_limit %}<p class="gentle-note">All {{ persona_limit }} slots are in use. Delete a persona before creating another.</p>{% endif %}
+    </form>
+  </section>
+{% endblock %}

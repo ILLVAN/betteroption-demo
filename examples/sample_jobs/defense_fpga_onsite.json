@@ -1,0 +1,20 @@
+{
+  "id": "00000000-0000-4000-8000-000000000104",
+  "title": "FPGA Systems Developer",
+  "company": "Aegis Defense Systems",
+  "location": "Munich",
+  "summary": "On-site FPGA role in the defense industry.",
+  "source_type": "sample",
+  "source_name": "defense_fpga_onsite.json",
+  "source_text": "Aegis Defense Systems is hiring an FPGA Systems Developer in Munich for military communications products. This is an office-only position with five office days per week. FPGA and VHDL experience are required. The role includes integration testing and occasional business travel. A direct permanent employment contract is offered.",
+  "facts": [
+    {"key": "role.family", "value": "FPGA development", "kind": "context", "evidence_quote": "FPGA Systems Developer"},
+    {"key": "industry.sector", "value": "defense or military", "kind": "context", "evidence_quote": "military communications products"},
+    {"key": "work_model.remote", "value": "office only onsite", "kind": "offer", "evidence_quote": "office-only position"},
+    {"key": "work_model.office_days", "value": "5 days per week", "kind": "requirement", "evidence_quote": "five office days per week"},
+    {"key": "skill.name", "value": "FPGA", "kind": "requirement", "evidence_quote": "FPGA"},
+    {"key": "skill.name", "value": "VHDL", "kind": "requirement", "evidence_quote": "VHDL"},
+    {"key": "travel.required", "value": "occasional business travel", "kind": "requirement", "evidence_quote": "occasional business travel"},
+    {"key": "employment.arrangement", "value": "Direct contract with the employer", "kind": "offer", "evidence_quote": "direct permanent employment contract"}
+  ]
+}

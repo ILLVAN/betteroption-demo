@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Review indirect evidence · WorkLifeBalance{% endblock %}
+{% block content %}
+  <section class="review-heading">
+    <p class="eyebrow">Review Tray · {{ definition.title }}</p>
+    <h1>Choose what this evidence may add.</h1>
+    <p class="hero-copy">Direct Compass answers are already active. This tray is for indirect CV or learned evidence: confirm, edit, recategorize, or remove only what should join your Compass.</p>
+    {% if progress.summary %}<div class="summary-note">{{ progress.summary }}</div>{% endif %}
+    {% if progress.follow_up_question %}<div class="summary-note"><strong>After this review:</strong> {{ progress.follow_up_question }}</div>{% endif %}
+  </section>
+  <form id="bulk-review-form" class="bulk-review" method="post" action="{{ url_for('profile_facts_confirm_selected', workspace_id=workspace.id) }}" data-bulk-review>
+    <input type="hidden" name="return_to" value="{{ return_to }}">
+    <div class="bulk-review-toolbar" aria-label="Bulk review controls">
+      <div>
+        <strong><span data-selection-count>0</span> selected</strong>
+        <span>Confirm only the statements you want to keep.</span>
+      </div>
+      <div class="inline-actions">
+        <button class="quiet-button" type="button" data-select-all>Select all</button>
+        <button class="quiet-button" type="button" data-clear-selection>Clear</button>
+        <button class="confirm-button" type="submit" data-confirm-selected disabled>Confirm selected</button>
+      </div>
+    </div>
+  </form>
+  <section class="review-grid" aria-label="Statements awaiting review">
+    {% for fact in facts %}
+      <article class="review-card level-{{ fact.level.value }} {% if not fact.needs_confirmation %}reviewed{% endif %}">
+        {% if fact.needs_confirmation %}
+          <label class="review-selection">
+            <input type="checkbox" name="selected_fact_ids" value="{{ fact.id }}" form="bulk-review-form" {% if fact.evidence_status.value == 'explicit' and fact.confidence.value == 'high' %}checked{% endif %}>
+            <span>Select statement</span>
+          </label>
+        {% endif %}
+        <div class="card-topline"><span class="fact-level">{{ fact.level.value|replace('_', ' ')|title }}</span><span>{{ fact.confidence.value }} confidence</span></div>
+        <h2>{{ fact.value }}</h2><p class="fact-key">{{ fact.key }}</p><blockquote>“{{ fact.source.text }}”</blockquote>
+        {% set reference_urls = reference_urls_by_fact.get(fact.id, []) %}
+        {% if reference_urls %}
+          <p class="fact-source-links"><strong>Reference job:</strong>
+            {% for reference_url in reference_urls %}<a href="{{ reference_url }}" target="_blank" rel="noopener noreferrer">{{ reference_url }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+          </p>
+        {% endif %}
+        {% if fact.needs_confirmation %}
+          <form class="quick-actions" method="post" action="{{ url_for('profile_fact_action', workspace_id=workspace.id, fact_id=fact.id) }}"><input type="hidden" name="return_to" value="{{ return_to }}"><button class="confirm-button" name="action" value="confirm" type="submit">Confirm</button><button class="quiet-button" name="action" value="reject" type="submit">Remove</button></form>
+          <details class="edit-panel"><summary>Edit statement or category</summary>
+            <form method="post" action="{{ url_for('profile_fact_action', workspace_id=workspace.id, fact_id=fact.id) }}">
+              <input type="hidden" name="return_to" value="{{ return_to }}">
+              <label>Wording<input name="new_value" value="{{ fact.value }}" maxlength="1000" required></label>
+              <label>Category<select name="new_level">{% for level in levels %}<option value="{{ level.value }}" {% if level == fact.level %}selected{% endif %}>{{ level.value|replace('_', ' ')|title }}</option>{% endfor %}</select></label>
+              <button class="secondary-button" name="action" value="edit_value" type="submit">Save changes</button>
+            </form>
+          </details>
+        {% else %}<span class="saved-marker">Saved</span>{% endif %}
+      </article>
+    {% endfor %}
+  </section>
+{% endblock %}
