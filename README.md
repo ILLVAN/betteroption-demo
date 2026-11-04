@@ -115,3 +115,17 @@ requires `-ExpectedSha256`. Full commands are in the
 Historical engineering records and discontinued product-planning drafts are
 separated under [docs/archive](docs/archive/README.md). They describe earlier
 checkpoints and are retained for traceability.
+
+## License and reuse
+
+The project code is available under the [BSD 3-Clause license](LICENSE),
+including commercial use, subject to its conditions. Preserve the applicable
+copyright, license, and disclaimer notices when redistributing it.
+
+If you build something with this project, a short note via a GitHub issue and
+credit linking to https://github.com/ILLVAN/betteroption-demo would be appreciated.
+This is a voluntary request, not an additional license condition. Third-party
+components retain their own licenses and notices.
+
+Bundled geographic datasets retain their existing provenance and license notices
+under `src/betteroption/data/`; the project license does not replace those terms.
